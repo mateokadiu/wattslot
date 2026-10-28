@@ -25,6 +25,12 @@ importers:
       "@wattslot/db":
         specifier: workspace:*
         version: link:../../packages/db
+      "@wattslot/eds-client":
+        specifier: workspace:*
+        version: link:../../packages/eds-client
+      "@wattslot/pricing":
+        specifier: workspace:*
+        version: link:../../packages/pricing
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@cloudflare/workers-types@5.20261028.1)

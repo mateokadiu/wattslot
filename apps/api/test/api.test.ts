@@ -111,7 +111,7 @@ describe('api', () => {
   it('publishes an OpenAPI 3.1 document', async () => {
     const doc = (await (await get('/openapi.json')).json()) as { openapi: string; paths: object };
     expect(doc.openapi).toBe('3.1.0');
-    expect(Object.keys(doc.paths)).toEqual(['/v1/zones', '/v1/grid-companies']);
+    expect(Object.keys(doc.paths)).toEqual(['/v1/zones', '/v1/grid-companies', '/v1/status']);
   });
 });
 
