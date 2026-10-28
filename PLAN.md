@@ -1,6 +1,6 @@
 # `wattslot` — Implementation Plan
 
-> A self-hostable planning engine that tells you — or your charger, heat pump or Home Assistant — **when** to use electricity, using the price you actually pay (spot + grid tariff + taxes + VAT) and the grid's CO₂ forecast, at 15-minute resolution.
+> An open-source planning engine, free to run on Cloudflare, that tells you — or your charger, heat pump or Home Assistant — **when** to use electricity, using the price you actually pay (spot + grid tariff + taxes + VAT) and the grid's CO₂ forecast, at 15-minute resolution.
 
 **Status:** Decisions confirmed 2026-10-28 (§13). Phase 0 done (§15).
 **Research date:** 2026-10-28. Every market number below has a source in §17; anything not verified is marked _(unverified)_.
@@ -16,7 +16,7 @@
 - **Works for dumb appliances too.** A dishwasher without an API still benefits: the plan arrives as a push notification or calendar event ("start at 01:15").
 - **Plays well with what people already run.** Feed evcc and Home Assistant instead of competing with their device libraries.
 - **Honest savings.** Compare every plan against "start now" _and_ against a plain midnight timer, and (later) verify against real meter data.
-- **Self-host first, $0 to run.** One `docker compose up` on a free ARM VM. No paid APIs.
+- **Free to run, easy to own.** Deploys to Cloudflare's free plan with one command — no server, no card, no paid APIs. Anyone can deploy their own copy.
 - **Zone-agnostic core.** Denmark (DK1/DK2) gets full-price support first; other bidding zones in the same dataset (DE, NO, SE, FI) work in spot-only mode until a tariff provider exists.
 
 ### Non-goals (v1)
@@ -121,13 +121,16 @@ Takeaway, stated plainly in the product: **most of the money comes from staying 
 
 ### 2.6 Risks
 
-| Risk                                                                                 | Mitigation                                                                                                                       |
-| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| evcc already controls devices well and could add a tariff resolver                   | Position as a **feed** for evcc (custom tariff + plan push), not a rival. Device control stays out of scope.                     |
-| Grid companies change tariff code names / periods (regulator is reviewing ToU zones) | Curated `tariff_mappings` table with a nightly validation job that alerts when a mapped code disappears or a new period appears. |
-| EDS rate limits (HTTP 429, ~300 s back-off) and the "don't proxy for all users" rule | One central ingester per dataset, cached in Postgres; users never hit EDS.                                                       |
-| Tax/tariff policy changes (elafgift returns after 2027)                              | Taxes are dated rows, not constants.                                                                                             |
-| Incumbent apps are free                                                              | Compete on openness, correctness and integrations, not on reach.                                                                 |
+| Risk                                                                                                                 | Mitigation                                                                                                                                                       |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| evcc already controls devices well and could add a tariff resolver                                                   | Position as a **feed** for evcc (custom tariff + plan push), not a rival. Device control stays out of scope.                                                     |
+| Grid companies change tariff code names / periods (regulator is reviewing ToU zones)                                 | Curated `tariff_mappings` table with a nightly validation job that alerts when a mapped code disappears or a new period appears.                                 |
+| EDS rate limits (HTTP 429, ~300 s back-off) and the "don't proxy for all users" rule                                 | One central ingester per dataset, cached in D1; users never hit EDS. Back-off state is stored, so a 429 skips the next cron ticks instead of retrying in a loop. |
+| Cloudflare Workers share outgoing IPs, so other people's EDS traffic could trigger rate limits for us _(unverified)_ | Few requests per day (one per dataset per update), stored back-off, cache; ENTSO-E fallback in Phase 4.                                                          |
+| Cloudflare lock-in (D1, Workflows, Cron)                                                                             | `pricing`, `planner` and `eds-client` are runtime-agnostic and tested in both Node and `workerd`; D1 is SQLite and exports with one command.                     |
+| Free-plan limits: 10 ms CPU per invocation, 100k requests/day, 100k D1 row writes/day                                | Small, filtered upstream queries; batched writes; CPU time checked in tests and logs; alerts before limits.                                                      |
+| Tax/tariff policy changes (elafgift returns after 2027)                                                              | Taxes are dated rows, not constants.                                                                                                                             |
+| Incumbent apps are free                                                                                              | Compete on openness, correctness and integrations, not on reach.                                                                                                 |
 
 ---
 
@@ -152,66 +155,70 @@ Three things make this harder than "sort by price":
 
 ## 4. Architecture
 
+Everything runs on Cloudflare's free plan.
+
 ```
-                         ┌───────────────────────────────────────────┐
-  Energi Data Service ──►│  ingest workflows (Temporal schedules)    │
-  (DayAheadPrices,       │  one fetch per dataset per update window  │
-   CO2EmisProg, CO2Emis, │  429-aware, idempotent upserts            │
-   DatahubPricelist)     └──────────────────┬────────────────────────┘
-  ENTSO-E (fallback, P4)                    │
-                                            ▼
-                               ┌──────────────────────────┐
-                               │   Postgres 16             │
-                               │   spot / co2 / charges /  │
-                               │   sites / jobs / plans    │
-                               └──────┬────────────┬───────┘
-                                      │            │
-               ┌──────────────────────┘            └─────────────────────┐
-               ▼                                                         ▼
-  ┌──────────────────────────┐   signal: pricesUpdated    ┌──────────────────────────┐
-  │  api (NestJS, REST +     │──────────────────────────► │  job workflows (Temporal)│
-  │  OpenAPI)                │   start / cancel / update  │  plan → timers → actuate │
-  │  • /prices  (breakdown)  │                            │  → re-plan → settle      │
-  │  • /jobs    /plans       │                            └────────────┬─────────────┘
-  │  • /evcc/tariff  (feed)  │                                         │ activities
-  │  • /ical         (feed)  │                                         ▼
-  └────────────┬─────────────┘            ┌─────────────────────────────────────────┐
-               │                          │ web push · signed webhooks · evcc plan   │
-               ▼                          │ push · HA MQTT discovery · Easee (P4)    │
-  ┌──────────────────────────┐            └─────────────────────────────────────────┘
-  │ web (Next.js PWA)        │
-  │ price chart · jobs · 3-  │      packages/pricing  — pure: all-in price per slot
-  │ option plan · settings   │      packages/planner  — pure: slot selection
-  └──────────────────────────┘      (both property-tested, no I/O)
+                    ┌──────────────────────────────────────────────────────────┐
+ Energi Data ──────►│  apps/api — one Worker                                   │
+ Service            │                                                          │
+ (DayAheadPrices,   │  scheduled()  one cron, every 5 min, dispatches:         │
+  CO2EmisProg,      │    • day-ahead prices   12:55–14:30 local, until complete │
+  CO2Emis,          │    • CO₂ forecast/actual  every 15 min                     │
+  DatahubPricelist) │    • tariffs + mapping check  nightly                      │
+                    │    • then: sendEvent('prices_published') to live jobs     │
+                    │                                                          │
+                    │  fetch()   Hono REST + OpenAPI                           │
+                    │    /v1/prices  /v1/co2  /v1/cheapest  /v1/jobs  /v1/feeds │
+                    │                                                          │
+                    │  JobWorkflow  (Cloudflare Workflows, Phase 2)            │
+                    │    plan → sleep until boundary → act → re-plan on event   │
+                    └──────────────┬───────────────────────────────┬───────────┘
+                                   │                               │ outbound
+                                   ▼                               ▼
+                       ┌──────────────────────┐     web push · signed webhooks ·
+                       │  D1 (SQLite)         │     evcc plan push (if reachable)
+                       │  prices · co2 ·      │
+                       │  charges · jobs ·    │     pulled by users' systems:
+                       │  plans · ingest state│     evcc tariff feed · iCal · HA feed
+                       └──────────┬───────────┘
+                                  ▼
+                       ┌──────────────────────┐   packages/pricing  — pure: all-in price per slot
+                       │ apps/web — Next.js   │   packages/planner  — pure: slot selection
+                       │ on Workers (OpenNext)│   packages/eds-client — typed EDS access
+                       │ chart · jobs · PWA   │   (all run in Node and in workerd)
+                       └──────────────────────┘
 ```
 
 **Design rules**
 
-- **Pure core, effectful shell.** `pricing` and `planner` are pure TypeScript packages with no I/O — the api and workflows call them. All the interesting logic is unit/property-testable without Docker.
-- **Users never call upstream.** EDS asks vendors to cache and serve their own users; ingestion is centralised and the api reads only from Postgres.
+- **Pure core, thin shell.** `pricing`, `planner` and `eds-client` have no Cloudflare dependencies. They're tested in Node and inside `workerd`, so they'd move to any other runtime unchanged.
+- **Users never call upstream.** EDS asks vendors to cache and serve their own users. One cron ingests; the API reads only from D1.
+- **One cron trigger.** The free plan allows 5 per _account_, so a single 5-minute trigger dispatches every scheduled task by local time.
 - **Every plan is versioned.** Re-plans create a new `plan` row; the old one is kept for audit and for "why did it change?" in the UI.
-- **REST + OpenAPI is the public surface.** No gRPC: there is one service boundary (api ↔ workers) and Temporal already is that boundary.
+- **Pull over push.** A cloud Worker can't reach devices on a home network, so evcc, Home Assistant and calendars _pull_ feeds. Pushing to a home device needs the user to expose it (e.g. their own Cloudflare Tunnel). This is also the safer default.
+- **REST + OpenAPI is the public surface.** One backend Worker; no internal RPC layer.
 
 ---
 
 ## 5. Tech stack
 
-| Layer         | Choice                                                                                                              | Why                                                                                                                     |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Language      | TypeScript 6 (strict, `exactOptionalPropertyTypes`), Node 24, ESM                                                   | One language across api, workers, web. TS 6 rather than the new native TS 7 until NestJS decorator support is confirmed |
-| Monorepo      | pnpm + Turborepo                                                                                                    | Shared `pricing`/`planner` packages                                                                                     |
-| API           | NestJS 11                                                                                                           | Modules, DI, OpenAPI generation                                                                                         |
-| Workflows     | Temporal (self-hosted, Postgres persistence + SQL visibility)                                                       | Durable timers per job, re-plan via signals, retries with back-off; no Elasticsearch                                    |
-| DB            | Postgres 16 + Drizzle ORM                                                                                           | Data is small (≈35k price rows / zone / year; ≈105k CO₂ rows) — no Timescale needed                                     |
-| Money         | Integer micro-DKK (1e-6 DKK) in code, `numeric(14,6)` in DB                                                         | No float drift when summing 96 slots × 6 components                                                                     |
-| Validation    | Zod at every boundary (EDS responses, API input)                                                                    | Upstream schema changes fail loudly                                                                                     |
-| Web           | Next.js 16 (App Router, RSC) + Tailwind + hand-rolled SVG chart                                                     | PWA with Web Push (works on iOS 16.4+ home-screen apps)                                                                 |
-| Auth          | Better-Auth — passkeys + email magic link; single-user mode for self-host                                           | No passwords stored                                                                                                     |
-| Secrets       | Envelope encryption: AES-256-GCM DEKs wrapped by OpenBao Transit (self-host) or OCI Vault (free)                    | Device tokens never stored in plaintext                                                                                 |
-| Lint / format | Biome (single tool, CI-enforced)                                                                                    | Same setup as the other repos; no ESLint/Prettier                                                                       |
-| Tests         | Vitest + fast-check (property), recorded EDS fixtures (golden days), Playwright (web), Testcontainers (integration) |                                                                                                                         |
-| Infra         | Docker Compose on Oracle Cloud Always Free (ARM, 4 OCPU / 24 GB), Caddy for TLS, Pulumi for the VM + network        | $0/month                                                                                                                |
-| CI            | GitHub Actions: lint, typecheck, unit, property, integration, e2e, image build                                      |                                                                                                                         |
+| Layer         | Choice                                                                                                                        | Why                                                                                            |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Language      | TypeScript 6 (strict, `exactOptionalPropertyTypes`), ESM; Node 24 for tooling                                                 | One language everywhere. TS 6 until the native TS 7 toolchain settles                          |
+| Monorepo      | pnpm + Turborepo                                                                                                              | Shared packages across Workers and web                                                         |
+| Runtime       | Cloudflare Workers (free plan)                                                                                                | No server to run; 100k requests/day, 10 ms CPU per invocation, 64 MiB bundle                   |
+| API           | Hono + `@hono/zod-openapi`                                                                                                    | Built for Workers; Zod schemas generate the OpenAPI spec                                       |
+| Scheduling    | One Cron Trigger (every 5 min)                                                                                                | Free plan: 5 triggers per account                                                              |
+| Workflows     | Cloudflare Workflows (Phase 2)                                                                                                | Durable steps, `sleepUntil`, `waitForEvent` for re-planning, retries — the Temporal role, free |
+| DB            | Cloudflare D1 (SQLite) + Drizzle ORM                                                                                          | 5 GB free; data is small (≈35k price rows / zone / year)                                       |
+| Money         | Integer micro-units (1e-6 DKK) in code **and** in the DB                                                                      | No float drift; SQLite integers store them exactly                                             |
+| Validation    | Zod at every boundary (EDS responses, API input)                                                                              | Upstream schema changes fail loudly                                                            |
+| Web           | Next.js 16 (App Router, RSC) on Workers via OpenNext + Tailwind + hand-rolled SVG chart                                       | PWA with Web Push (works on iOS 16.4+ home-screen apps)                                        |
+| Auth          | Better-Auth on D1 — passkeys + email magic link; single-user mode for deploy-your-own                                         | No passwords stored                                                                            |
+| Secrets       | Envelope encryption with Web Crypto: AES-256-GCM data keys wrapped by a key-encryption key held as a Workers Secret           | Device tokens never stored in plaintext; no paid KMS                                           |
+| Lint / format | Biome (single tool, CI-enforced; also formats Markdown)                                                                       | Same setup as the other repos                                                                  |
+| Tests         | Vitest + fast-check (property), recorded EDS fixtures (golden days), a `workerd` runtime test via Miniflare, Playwright (web) |                                                                                                |
+| Deploy        | GitHub Actions → `wrangler deploy` and `wrangler d1 migrations apply`; scoped Cloudflare API token as a repo secret           | $0/month                                                                                       |
 
 ---
 
@@ -242,158 +249,34 @@ Three things make this harder than "sort by price":
 
 ---
 
-## 7. Database schema (Postgres 16 + Drizzle)
+## 7. Database schema (D1 / SQLite + Drizzle)
 
-```sql
--- Reference data ------------------------------------------------------------
-create table price_zones (
-  code        text primary key,              -- 'DK1', 'DK2', 'DE', 'SE3' …
-  currency    text not null,                 -- 'DKK' | 'EUR' | 'SEK' | 'NOK'
-  timezone    text not null,                 -- 'Europe/Copenhagen'
-  full_price  boolean not null default false -- tariff provider available?
-);
+Source of truth: [`packages/db/src/schema.ts`](./packages/db/src/schema.ts). Conventions, because SQLite has no rich types:
 
-create table grid_companies (
-  gln          text primary key,             -- '5790000705689' (Radius)
-  name         text not null,
-  zone         text not null references price_zones(code)
-);
+| Kind of value    | Stored as                                                                     | Example                     |
+| ---------------- | ----------------------------------------------------------------------------- | --------------------------- |
+| Money per kWh    | `integer`, micro-units (1e-6)                                                 | `955573` = 0.955573 DKK/kWh |
+| Instants         | `integer`, epoch milliseconds (UTC); 15-min slots checked with `% 900000 = 0` | `slot_start_ms`             |
+| Tariff validity  | `text`, Danish local wall clock `YYYY-MM-DDTHH:mm:ss`, as published           | `2026-10-01T00:00:00`       |
+| 24 hourly prices | `text` JSON array of 24 integers, checked with `json_array_length`            | `[106175, …]`               |
+| Booleans         | `integer` 0/1                                                                 |                             |
+| IDs              | `text` UUIDs                                                                  |                             |
+| Secrets          | `blob` ciphertext + wrapped data key + associated-data string                 |                             |
 
--- Which ChargeTypeCode is the household tariff for each grid company.
--- Curated, validated nightly (§10.4).
-create table tariff_mappings (
-  gln           text not null references grid_companies(gln),
-  customer_type text not null,               -- 'C' (household) for v1
-  charge_code   text not null,               -- e.g. 'DT_C_01'
-  primary key (gln, customer_type)
-);
-
--- Market data ----------------------------------------------------------------
-create table spot_prices (
-  zone         text not null references price_zones(code),
-  slot_start   timestamptz not null,         -- UTC, 15-min aligned
-  price_dkk    numeric(14,6) not null,       -- per kWh
-  price_eur    numeric(14,6) not null,
-  source       text not null,                -- 'eds' | 'entsoe'
-  ingested_at  timestamptz not null default now(),
-  primary key (zone, slot_start)
-);
-
-create table co2_intensity (
-  zone         text not null,
-  ts           timestamptz not null,         -- 5-min
-  kind         text not null check (kind in ('forecast','actual')),
-  g_per_kwh    numeric(8,2) not null,
-  issued_at    timestamptz not null,         -- forecasts get revised
-  primary key (zone, ts, kind)
-);
-
-create table charges (                    -- grid tariffs, Energinet tariffs, elafgift (EA-001)
-  owner_gln      text not null,
-  charge_code    text not null,
-  charge_type    text not null,              -- D01 subscription | D02 fee | D03 tariff
-  valid_from     timestamp not null,         -- Danish local wall clock, as published
-  valid_to       timestamp,
-  hourly_per_kwh numeric(14,6)[] not null check (array_length(hourly_per_kwh, 1) = 24),
-  is_tax         boolean not null default false,
-  note           text,
-  primary key (owner_gln, charge_code, valid_from)
-);
-
-create table vat_rates (                   -- the only tax DataHub doesn't publish
-  zone         text not null,
-  valid_from   date not null,
-  valid_to     date,
-  basis_points int not null,                -- 2500 = 25%
-  primary key (zone, valid_from)
-);
-
--- Users & sites ----------------------------------------------------------------
-create table sites (
-  id               uuid primary key,
-  user_id          uuid not null,
-  name             text not null,
-  zone             text not null references price_zones(code),
-  grid_gln         text references grid_companies(gln),   -- null → spot-only mode
-  supplier_markup  numeric(14,6) not null default 0,       -- DKK/kWh excl. VAT
-  co2_price_dkk_kg numeric(8,2) not null default 0,        -- shadow price (§8.3)
-  feed_token_hash  bytea not null,                         -- capability URL for evcc/iCal
-  created_at       timestamptz not null default now()
-);
-
--- Jobs & plans -----------------------------------------------------------------
-create table jobs (
-  id            uuid primary key,
-  site_id       uuid not null references sites(id),
-  kind          text not null,               -- 'ev' | 'appliance' | 'heat_boost' | 'custom'
-  energy_kwh    numeric(8,3) not null,
-  max_power_kw  numeric(6,2) not null,
-  earliest      timestamptz not null,
-  deadline      timestamptz not null,
-  contiguous    boolean not null default false, -- dishwasher programs can't pause
-  min_run_slots int not null default 1,          -- heat pumps: avoid short cycling
-  objective     text not null default 'balanced', -- 'cheapest' | 'greenest' | 'balanced'
-  status        text not null,               -- 'planned' | 'running' | 'done' | 'cancelled' | 'failed'
-  workflow_id   text not null unique,
-  created_at    timestamptz not null default now()
-);
-
-create table plans (
-  id            uuid primary key,
-  job_id        uuid not null references jobs(id),
-  version       int not null,
-  reason        text not null,               -- 'created' | 'prices_published' | 'co2_updated' | 'user_edit'
-  provisional   boolean not null,            -- uses estimated slots beyond known prices
-  cost_dkk      numeric(14,6) not null,
-  co2_g         numeric(14,2) not null,
-  baseline_now_dkk      numeric(14,6) not null,
-  baseline_midnight_dkk numeric(14,6) not null,
-  created_at    timestamptz not null default now(),
-  unique (job_id, version)
-);
-
-create table plan_slots (
-  plan_id     uuid not null references plans(id),
-  slot_start  timestamptz not null,
-  energy_kwh  numeric(8,4) not null,
-  price_dkk   numeric(14,6) not null,        -- all-in, incl. VAT
-  co2_g_kwh   numeric(8,2) not null,
-  estimated   boolean not null,
-  primary key (plan_id, slot_start)
-);
-
--- Integrations & delivery ------------------------------------------------------
-create table integrations (
-  id            uuid primary key,
-  site_id       uuid not null references sites(id),
-  kind          text not null,               -- 'webpush' | 'webhook' | 'evcc' | 'ha_mqtt' | 'easee'
-  config        jsonb not null,              -- non-secret settings only
-  secret_ct     bytea,                       -- AES-256-GCM ciphertext
-  secret_dek    bytea,                       -- wrapped DEK
-  secret_aad    text,                        -- 'site:<id>|kind:<kind>'
-  enabled       boolean not null default true
-);
-
-create table deliveries (
-  id              uuid primary key,
-  integration_id  uuid not null references integrations(id),
-  plan_id         uuid not null references plans(id),
-  action          text not null,             -- 'notify' | 'start' | 'stop' | 'push_plan'
-  idempotency_key text not null unique,
-  status          text not null,             -- 'pending' | 'ok' | 'failed'
-  attempts        int not null default 0,
-  last_error      text,
-  created_at      timestamptz not null default now()
-);
-
--- Phase 4: verified savings ------------------------------------------------------
-create table meter_readings (
-  site_id     uuid not null references sites(id),
-  slot_start  timestamptz not null,
-  kwh         numeric(10,4) not null,
-  primary key (site_id, slot_start)
-);
-```
+| Table                         | Purpose                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `price_zones`                 | DK1, DK2 (full price); DE, SE3, … (spot-only)                                               |
+| `grid_companies`              | GLN, name, zone, `degraded_at` set by the nightly mapping check                             |
+| `tariff_mappings`             | Grid company → household tariff charge code                                                 |
+| `spot_prices`                 | Zone × 15-min slot → price (micro-units per kWh)                                            |
+| `co2_intensity`               | Zone × 5-min → g/kWh, `forecast` or `actual`                                                |
+| `charges`                     | DataHub charges: grid tariffs, Energinet tariffs, electricity tax (`EA-001`)                |
+| `vat_rates`                   | The only tax DataHub doesn't publish                                                        |
+| `ingest_state`                | Per dataset: last success, next allowed attempt (429 back-off), last error                  |
+| `sites`                       | Zone, grid company (never an address), supplier markup, CO₂ shadow price, hashed feed token |
+| `jobs`, `plans`, `plan_slots` | Phase 2 — jobs, versioned plans and their slots                                             |
+| `integrations`, `deliveries`  | Phase 3 — encrypted credentials, idempotent outbound actions                                |
+| `meter_readings`              | Phase 4 — Eloverblik data, deploy-your-own only                                             |
 
 ---
 
@@ -467,51 +350,53 @@ The UI headline is the saving vs the midnight timer; "vs start now" is secondary
 
 ## 9. Key flows
 
-### 9.1 Ingestion (Temporal schedules)
+### 9.1 Ingestion (one cron, every 5 minutes)
 
 ```
-schedule  dayAheadIngest   every 5 min, 12:55–14:30 Europe/Copenhagen
-  ├─ activity fetchDayAhead(zone=all, from=tomorrow)       -- one request for all zones
-  ├─ if 429 → throw RetryableError(after = header/body seconds)
-  ├─ validate (Zod), upsert spot_prices
-  ├─ if tomorrow complete (92/96/100 slots per zone) → mark done for today
-  └─ signal every active job workflow: pricesUpdated(zone)
-
-schedule  co2ForecastIngest  every 15 min        → upsert co2_intensity(kind=forecast); signal co2Updated
-schedule  co2ActualIngest    every 15 min        → upsert co2_intensity(kind=actual)
-schedule  tariffIngest       daily 06:00         → upsert charges; run tariffMappingCheck (§10.4)
+scheduled(event)                     -- the only Cron Trigger: */5 * * * *
+  now = local time in Europe/Copenhagen
+  for task in due(now):              -- each task skipped while ingest_state.next_attempt_at > now
+    dayAhead       12:55–14:30 local, until tomorrow has 92/96/100 slots per zone
+    co2Forecast    every 15 min      (CO2EmisProg, DK1+DK2)
+    co2Actual      every 15 min      (CO2Emis, DK1+DK2)
+    tariffs        02:00 local       (DatahubPricelist for mapped GLNs + Energinet codes; mapping check §10.4)
+  on success → upsert in D1 batches, ingest_state.last_success_at = now
+  on 429     → ingest_state.next_attempt_at = now + retryAfterSeconds   (no retry loop)
+  on new day-ahead prices → each running JobWorkflow: instance.sendEvent({ type: 'prices_published' })
 ```
 
-### 9.2 Job lifecycle (one workflow per job)
+Each task fetches only what it needs (filtered by zone, GLN and code) so parsing stays within the 10 ms CPU budget.
+
+### 9.2 Job lifecycle (one Workflow instance per job)
 
 ```
-jobWorkflow(jobId)
-  plan = activity buildPlan(jobId, reason='created')
-  activity deliver(plan, action='notify')                -- "planned: 01:15–02:45, 17.80 DKK"
-  loop
-    next = earliest future boundary (slot start or stop)
-    race:
-      sleep(until next)            → activity deliver(start|stop), idempotency key = plan:slot:action
-      signal pricesUpdated|co2Updated → plan = buildPlan(reason=…); if changed → deliver(notify)
-      signal updateJob(fields)        → plan = buildPlan(reason='user_edit')
-      signal cancel                   → deliver(stop if running); status=cancelled; return
-  until all slots done
-  activity settle(jobId)        -- final cost/CO₂ from actual CO2Emis; Phase 4: meter data
+JobWorkflow.run(event, step)
+  plan = step.do('plan v1', () => buildPlan(jobId))                 -- reads D1, writes plan + slots
+  step.do('notify planned', …)                                      -- "planned: 01:15–02:45, 17.80 DKK"
+  loop until all slots done
+    next = earliest future slot boundary
+    try
+      evt = step.waitForEvent('update', { type: 'job_update', timeout: until(next) })
+      plan = step.do('re-plan', () => buildPlan(jobId, evt.reason)) -- prices_published | co2_updated | user_edit | cancel
+      if evt.reason == cancel → step.do('stop', …); mark cancelled; return
+    catch timeout
+      step.do(`act ${next}`, () => deliver(start|stop, idempotencyKey = plan:slot:action))
+  step.do('settle', …)                                              -- final cost/CO₂ from CO2Emis actuals
 ```
 
-- Activities are idempotent; `deliveries.idempotency_key` is unique.
-- The workflow never holds secrets: integration activities load and decrypt tokens themselves. A Temporal payload codec encrypts workflow history at rest anyway.
-- Long-running jobs use `continueAsNew` after N re-plans to keep history small.
+- Every step is idempotent; `deliveries.idempotency_key` is unique.
+- **Step outputs are persisted by Cloudflare**, so steps never return tokens or other secrets — integration steps load and decrypt credentials themselves and return only results.
+- A job is far below the 1,024-steps limit (an overnight EV job is ~20 steps); very long schedules start a fresh instance when they near it.
 
 ### 9.3 Feeds for other systems
 
-| Feed               | Endpoint                                                                                                                       | Format                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| evcc custom tariff | `GET /v1/feeds/{token}/evcc?type=price\|co2`                                                                                   | `[{ "start": "…Z", "end": "…Z", "value": 2.31 }]` (15-min) — evcc's `type: custom`, `forecast: { source: http }` |
-| evcc plan push     | outbound `POST {evcc}/api/loadpoints/{id}/plan/energy/{kWh}/{RFC3339}`                                                         | evcc REST API, bearer API key                                                                                    |
-| Calendar           | `GET /v1/feeds/{token}/plans.ics`                                                                                              | iCal events per planned run — works for any appliance                                                            |
-| Home Assistant     | outbound MQTT discovery: `homeassistant/sensor/wattslot_<site>/price_now/config`, `binary_sensor/…/cheap_now`, per-job `…/run` | User automations do the switching                                                                                |
-| Webhooks           | outbound `POST` with `X-Signature: sha256=…` (HMAC), retries with back-off                                                     | JSON `plan.created/changed`, `slot.start/stop`                                                                   |
+| Feed               | Endpoint                                                                                                                                                                        | Format                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| evcc custom tariff | `GET /v1/feeds/{token}/evcc?type=price\|co2`                                                                                                                                    | `[{ "start": "…Z", "end": "…Z", "value": 2.31 }]` (15-min) — evcc's `type: custom`, `forecast: { source: http }` |
+| evcc plan push     | outbound `POST {evcc}/api/loadpoints/{id}/plan/energy/{kWh}/{RFC3339}` — only if the user exposes evcc (e.g. their own Cloudflare Tunnel)                                       | evcc REST API, bearer API key                                                                                    |
+| Calendar           | `GET /v1/feeds/{token}/plans.ics`                                                                                                                                               | iCal events per planned run — works for any appliance                                                            |
+| Home Assistant     | pull: `GET /v1/feeds/{token}/ha.json` for HA REST/template sensors (price now, cheap now, per-job run). MQTT discovery only if the user's broker is reachable from the internet | User automations do the switching                                                                                |
+| Webhooks           | outbound `POST` with `X-Signature: sha256=…` (HMAC), retries with back-off                                                                                                      | JSON `plan.created/changed`, `slot.start/stop`                                                                   |
 
 Feed tokens are **capability URLs**: 256-bit random, stored hashed, read-only, rotatable from settings.
 
@@ -553,23 +438,23 @@ Nightly: for every `tariff_mappings` row, assert a `charges` row exists that cov
 
 ## 11. Integrations — what's in, what's later
 
-| Route                                 | Verdict                | Why                                                                                                                             |
-| ------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| evcc (custom tariff feed + plan push) | **v1**                 | evcc already controls 100s of chargers/vehicles; feeding it is the highest leverage, lowest risk                                |
-| Home Assistant (MQTT discovery)       | **v1**                 | Turns plans into entities any automation can use                                                                                |
-| Web Push (PWA)                        | **v1**                 | Free; works on iOS 16.4+ when installed to home screen                                                                          |
-| iCal feed                             | **v1**                 | Covers every "dumb" appliance                                                                                                   |
-| Signed webhooks                       | **v1**                 | Escape hatch for everything else                                                                                                |
-| Easee cloud API                       | Phase 4                | Private users can authenticate; `dynamic-charger-current` with TTL; old schedule endpoints died 2026-09-01 — use `/schedules/*` |
-| Eloverblik                            | Phase 4                | Verified savings + grid-company auto-detect; MitID-generated refresh token, 24 h access tokens                                  |
-| Expo mobile app                       | Phase 4                | Android free; iOS needs a paid Apple account                                                                                    |
-| ENTSO-E fallback                      | Phase 4                | Free token; other zones and redundancy                                                                                          |
-| Zaptec                                | Later                  | Access via business rep; ROPC auth                                                                                              |
-| Tesla Fleet API                       | Later, BYO credentials | Card required; polling costs ~$17/month at 5-min data                                                                           |
-| Smartcar                              | Avoid                  | Paid beyond 1 vehicle                                                                                                           |
-| Monta Public API                      | Avoid                  | Operator-only                                                                                                                   |
-| Nord Pool API                         | Avoid                  | Licence forbids automated extraction; ~€1,250/yr                                                                                |
-| OCPP CSMS                             | Not planned            | Large scope; evcc already speaks OCPP                                                                                           |
+| Route                                               | Verdict                | Why                                                                                                                                  |
+| --------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| evcc (custom tariff feed; plan push when reachable) | **v1**                 | evcc pulls the all-in price / CO₂ feed and runs its own planner and device control; pushing plans needs evcc exposed to the internet |
+| Home Assistant (feed sensors)                       | **v1**                 | HA polls `ha.json` from the feed URL; MQTT discovery later, only for brokers reachable from the internet                             |
+| Web Push (PWA)                                      | **v1**                 | Free; works on iOS 16.4+ when installed to home screen                                                                               |
+| iCal feed                                           | **v1**                 | Covers every "dumb" appliance                                                                                                        |
+| Signed webhooks                                     | **v1**                 | Escape hatch for everything else                                                                                                     |
+| Easee cloud API                                     | Phase 4                | Private users can authenticate; `dynamic-charger-current` with TTL; old schedule endpoints died 2026-09-01 — use `/schedules/*`      |
+| Eloverblik                                          | Phase 4                | Verified savings + grid-company auto-detect; MitID-generated refresh token, 24 h access tokens                                       |
+| Expo mobile app                                     | Phase 4                | Android free; iOS needs a paid Apple account                                                                                         |
+| ENTSO-E fallback                                    | Phase 4                | Free token; other zones and redundancy                                                                                               |
+| Zaptec                                              | Later                  | Access via business rep; ROPC auth                                                                                                   |
+| Tesla Fleet API                                     | Later, BYO credentials | Card required; polling costs ~$17/month at 5-min data                                                                                |
+| Smartcar                                            | Avoid                  | Paid beyond 1 vehicle                                                                                                                |
+| Monta Public API                                    | Avoid                  | Operator-only                                                                                                                        |
+| Nord Pool API                                       | Avoid                  | Licence forbids automated extraction; ~€1,250/yr                                                                                     |
+| OCPP CSMS                                           | Not planned            | Large scope; evcc already speaks OCPP                                                                                                |
 
 ---
 
@@ -578,12 +463,13 @@ Nightly: for every `tariff_mappings` row, assert a `charges` row exists that cov
 ### 12.1 Security
 
 - **No device passwords stored, ever.** Easee/Zaptec use password grants: exchange once, keep only the refresh token; recommend a dedicated API user.
-- **Envelope encryption** for every stored secret: per-secret DEK (AES-256-GCM, AAD = `site|kind|integration id`), DEK wrapped by a KEK in OpenBao Transit (self-host) or OCI Vault (free tier). KEK never on the app host's disk.
+- **Envelope encryption** for every stored secret: a per-secret data key (AES-256-GCM via Web Crypto, associated data = `site|kind|integration id`), wrapped by a key-encryption key stored as a **Workers Secret** — never in D1, never in the repo. Rotating the key-encryption key re-wraps data keys only.
 - **Rotated refresh tokens persisted atomically** (Easee invalidates the previous one).
-- **Temporal payload codec** (AES-GCM) so workflow history never contains plaintext job data or tokens; Temporal UI/gRPC not exposed publicly.
-- **Capability URLs** for feeds: hashed at rest, read-only, rotatable, rate-limited per token.
+- **Workflow state holds no secrets.** Cloudflare persists every step's output, so steps decrypt credentials internally and return only non-sensitive results.
+- **Capability URLs** for feeds: 256-bit random, stored hashed, read-only, rotatable, rate-limited per token.
 - **Webhooks** signed with per-integration HMAC secrets; receivers documented to verify timestamp + signature.
-- **Outbound MQTT/evcc calls** only to user-configured hosts; block private-range targets in SaaS mode (SSRF), allow them in self-host mode.
+- **Pull over push.** The cloud never needs credentials for a user's home network; outbound calls go only to hosts the user configures, over HTTPS.
+- **Deploy credentials:** a Cloudflare API token scoped to this account's Workers and D1, stored as a GitHub Actions secret.
 - **Auth:** passkeys + magic link; no password table. Strict CSP, no third-party scripts, no telemetry.
 - **Logging:** structured logs with a redaction list (tokens, emails, addresses); never log request bodies of integration endpoints.
 
@@ -595,14 +481,14 @@ Nightly: for every `tariff_mappings` row, assert a `charges` row exists that cov
 | **ENTSO-E** (Phase 4 fallback)    | Only data on ENTSO-E's "free re-use" list may be reused; the list page couldn't be fetched during research.                                                                                                                | Confirm day-ahead prices are on that list **before** Phase 4. Until then, not used.                                                                                                                                                                                                                            |
 | **Nord Pool**                     | Website terms forbid automated extraction and redistribution.                                                                                                                                                              | Never used.                                                                                                                                                                                                                                                                                                    |
 | **Strømligning API**              | Non-commercial only.                                                                                                                                                                                                       | Never used.                                                                                                                                                                                                                                                                                                    |
-| **Eloverblik customer API**       | "Intended to be used by customers who want to access their own data." Services fetching other people's data must register as a DataHub third party and get powers of attorney.                                             | Eloverblik is enabled **only in self-host single-user mode** (your own token, your own data). A hosted multi-user version would need third-party registration — out of scope.                                                                                                                                  |
+| **Eloverblik customer API**       | "Intended to be used by customers who want to access their own data." Services fetching other people's data must register as a DataHub third party and get powers of attorney.                                             | Eloverblik is enabled **only in deploy-your-own single-user mode** (your own token in your own Cloudflare account, your own data). A hosted multi-user version would need third-party registration — out of scope.                                                                                             |
 | **Device APIs** (Easee, Tesla, …) | Each has its own developer terms.                                                                                                                                                                                          | Official APIs only, no reverse engineering. Read each vendor's terms before its phase starts.                                                                                                                                                                                                                  |
 | **Other projects' code**          | evcc (MIT), HA integrations (various).                                                                                                                                                                                     | Write our own implementation and tariff mappings from DatahubPricelist; copy nothing. If anything is ever copied, keep its licence notice. CI checks dependency licences against an allowlist.                                                                                                                 |
 | **Our own licences**              | Libraries Apache-2.0 (patent grant, maximum adoption); apps AGPL-3.0 (a hosted copy must publish its changes); each app gets its own LICENSE file.                                                                         | Before accepting the first external pull request, add a contributor licence agreement so dual licensing (AGPL + commercial) stays possible.                                                                                                                                                                    |
 | **Trademarks**                    | evcc, Home Assistant, Tesla, Easee, Energinet are others' marks.                                                                                                                                                           | Name them only to describe compatibility; no logos; README states the project isn't affiliated with any of them.                                                                                                                                                                                               |
 | **Project name**                  | "Grid Slot" is used by a motorsport app (gridslot.app) and a GitHub org, so the working name was dropped. `wattslot`: free on GitHub, npm and .com/.dev/.io/.app; no app or trademark hits found (web search, 2026-10-28). | A formal trademark search (EUIPO/DKPTO) only if it ever goes commercial.                                                                                                                                                                                                                                       |
 | **Patents**                       | Patents on price-based charge scheduling exist (e.g. US 11,390,183; US 9,112,382). Many open-source tools (evcc, Home Assistant) do this openly.                                                                           | Practical risk for a free, non-commercial OSS project is low. Get legal advice before any commercial launch.                                                                                                                                                                                                   |
-| **Privacy (GDPR)**                | The public demo has no accounts. Self-host keeps every user's data on their own server.                                                                                                                                    | Demo stores no personal data beyond short-retention server logs. Sites store zone + grid company, never a street address. A future hosted mode needs a privacy policy, a DPA, and data-minimisation review.                                                                                                    |
+| **Privacy (GDPR)**                | The public demo has no accounts. Deploy-your-own keeps each user's data in their own Cloudflare account.                                                                                                                   | Demo stores no personal data beyond Cloudflare's short-retention request logs. Sites store zone + grid company, never a street address. A future hosted mode needs a privacy policy, a DPA, and data-minimisation review.                                                                                      |
 | **Liability & claims**            | Apache-2.0 and AGPL-3.0 both disclaim warranties ("as is"). Savings are calculations, not guarantees.                                                                                                                      | UI states prices can differ from the actual bill (supplier markup, rounding) and always shows the baseline a saving is measured against.                                                                                                                                                                       |
 
 ---
@@ -611,20 +497,20 @@ Nightly: for every `tariff_mappings` row, assert a `charges` row exists that cov
 
 All twelve confirmed as recommended.
 
-| #   | Decision                 | Chosen                                                                                                        | Alternatives considered                                                                                                                                                       |
-| --- | ------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Name                     | `wattslot`                                                                                                    | `gridslot` (taken by a motorsport app), `quarterwatt`, `kwartr`                                                                                                               |
-| 2   | Deployment model         | **Self-host first** (single-user mode), plus a public read-only demo (prices + cheapest windows, no accounts) | Multi-user hosted SaaS from day 1                                                                                                                                             |
-| 3   | Workflow engine          | **Temporal** (durable per-job timers, signals for re-planning)                                                | BullMQ delayed jobs (lighter, but re-planning and cancellation get hand-rolled)                                                                                               |
-| 4   | Mobile                   | **PWA + Web Push in v1**, Expo app in Phase 4                                                                 | Expo from day 1                                                                                                                                                               |
-| 5   | Default CO₂ shadow price | **1.0 DKK/kg** ("balanced")                                                                                   | 0 (pure cost)                                                                                                                                                                 |
-| 6   | Grid-company selection   | **User picks from list (filtered by zone)**; Eloverblik auto-detect in Phase 4                                | Address → grid area lookup (needs a dataset we haven't verified)                                                                                                              |
-| 7   | Supplier markup          | **Optional user input, default 0, clearly labelled**                                                          | Pull supplier price lists (Strømligning — non-commercial licence)                                                                                                             |
-| 8   | Zones at launch          | **DK1/DK2 full price; DE/SE/NO/FI spot-only**                                                                 | DK only                                                                                                                                                                       |
-| 9   | UI language              | **English + Danish** (i18n from the start)                                                                    | English only                                                                                                                                                                  |
-| 10  | Licence                  | **Libraries (`packages/`) Apache-2.0, apps (`apps/`) AGPL-3.0** — changed from MIT on 2026-10-28              | MIT everywhere (no patent grant, no protection for a hosted version); AGPL everywhere (blocks companies embedding the libraries); source-available FSL/BUSL (not open source) |
-| 11  | Hosting                  | **Oracle Always Free ARM** + Caddy; backups to OCI Object Storage                                             | Home server / Raspberry Pi                                                                                                                                                    |
-| 12  | Phase 4 device order     | **Eloverblik → Easee → Expo**                                                                                 | Easee first                                                                                                                                                                   |
+| #   | Decision                 | Chosen                                                                                                                                                                                          | Alternatives considered                                                                                                                                                       |
+| --- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Name                     | `wattslot`                                                                                                                                                                                      | `gridslot` (taken by a motorsport app), `quarterwatt`, `kwartr`                                                                                                               |
+| 2   | Deployment model         | **Deploy-your-own** (one command into your own free Cloudflare account, single-user) plus a public read-only demo (prices + cheapest windows, no accounts)                                      | Multi-user hosted SaaS from day 1                                                                                                                                             |
+| 3   | Workflow engine          | **Cloudflare Workflows** — durable steps, `sleepUntil`, `waitForEvent` for re-planning. _Changed from Temporal on 2026-10-28 with the hosting decision._                                        | Temporal (needs an always-on server); Durable Object alarms (lower-level)                                                                                                     |
+| 4   | Mobile                   | **PWA + Web Push in v1**, Expo app in Phase 4                                                                                                                                                   | Expo from day 1                                                                                                                                                               |
+| 5   | Default CO₂ shadow price | **1.0 DKK/kg** ("balanced")                                                                                                                                                                     | 0 (pure cost)                                                                                                                                                                 |
+| 6   | Grid-company selection   | **User picks from list (filtered by zone)**; Eloverblik auto-detect in Phase 4                                                                                                                  | Address → grid area lookup (needs a dataset we haven't verified)                                                                                                              |
+| 7   | Supplier markup          | **Optional user input, default 0, clearly labelled**                                                                                                                                            | Pull supplier price lists (Strømligning — non-commercial licence)                                                                                                             |
+| 8   | Zones at launch          | **DK1/DK2 full price; DE/SE/NO/FI spot-only**                                                                                                                                                   | DK only                                                                                                                                                                       |
+| 9   | UI language              | **English + Danish** (i18n from the start)                                                                                                                                                      | English only                                                                                                                                                                  |
+| 10  | Licence                  | **Libraries (`packages/`) Apache-2.0, apps (`apps/`) AGPL-3.0** — changed from MIT on 2026-10-28                                                                                                | MIT everywhere (no patent grant, no protection for a hosted version); AGPL everywhere (blocks companies embedding the libraries); source-available FSL/BUSL (not open source) |
+| 11  | Hosting                  | **Cloudflare free plan**: Workers, D1, Workflows, one Cron Trigger; web via OpenNext on Workers. _Changed from Oracle Always Free on 2026-10-28: no card, no server, no idle-reclamation risk._ | Oracle Always Free ARM; home machine + Cloudflare Tunnel; Hetzner (~€4–5/month)                                                                                               |
+| 12  | Phase 4 device order     | **Eloverblik → Easee → Expo**                                                                                                                                                                   | Easee first                                                                                                                                                                   |
 
 ---
 
@@ -632,28 +518,23 @@ All twelve confirmed as recommended.
 
 ```
 wattslot/
-├── apps/
-│   ├── api/                  NestJS: REST, OpenAPI, auth, feeds
-│   │   └── src/{prices,sites,jobs,plans,integrations,feeds,push,auth}/
-│   ├── worker/               Temporal worker: workflows + activities
-│   │   └── src/{workflows/{ingest,job}.ts, activities/{eds,plan,deliver,settle}.ts, codec.ts}
-│   └── web/                  Next.js PWA
-│       └── src/app/{(public)/page.tsx, jobs/, settings/, integrations/}
-├── packages/
-│   ├── pricing/              pure: allIn(), breakdown(), tariff expansion, DST
+├── apps/                     AGPL-3.0, each with its own LICENSE
+│   ├── api/                  one Worker: Hono REST + OpenAPI, scheduled() ingestion, JobWorkflow
+│   │   ├── src/{routes,ingest,workflows,feeds,auth}/
+│   │   └── wrangler.jsonc    D1 binding, cron, workflow binding, secrets
+│   └── web/                  Next.js on Workers (OpenNext): chart, jobs, settings, PWA
+├── packages/                 Apache-2.0
+│   ├── pricing/              pure: all-in price, breakdown, tariff expansion, DST
 │   ├── planner/              pure: greedy / window / DP selectors, baselines
 │   ├── eds-client/           typed EDS client, Zod schemas, 429 handling
-│   ├── db/                   Drizzle schema + migrations
-│   ├── crypto/               envelope encryption, OpenBao / OCI adapters
+│   ├── db/                   Drizzle schema (D1) + migrations
+│   ├── crypto/               envelope encryption on Web Crypto
 │   └── contracts/            shared Zod schemas + OpenAPI types
 ├── fixtures/                 recorded EDS days (normal, DST spring, DST fall, negative-price day)
-├── infra/
-│   ├── docker-compose.yml    postgres, temporal, worker, api, web, caddy, openbao
-│   └── pulumi/               OCI VM, VCN, firewall, object storage bucket
 ├── docs/
-│   ├── adr/                  decision records (one per §13 row once confirmed)
+│   ├── adr/                  decision records
 │   └── integrations/{evcc,home-assistant,webhooks}.md
-├── .github/workflows/ci.yml
+├── .github/workflows/        ci.yml, deploy.yml
 ├── PLAN.md
 └── README.md
 ```
@@ -662,14 +543,14 @@ wattslot/
 
 ## 15. Build phases
 
-| Phase                               | Scope                                                                                                                     | Definition of done                                                                                                                                                                                                                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **0 — Foundations** ✅ 2026-10-28   | Monorepo (pnpm, Turborepo, Biome, CI), Drizzle schema + migration, `eds-client` with recorded fixtures, `pricing` package | Done: worked example reproduced to the øre (1.66 / 4.35); property tests for breakdown, monotonicity, local-hour tariffs and day tiling over 40 years; DST days priced at 92/100 slots; missing or overlapping charges throw; migration applied to Postgres 16 with constraint checks |
-| **1 — Live prices** (weekend 2)     | Temporal + ingest schedules, public price/CO₂/cheapest API, Next.js public page with stacked 15-min chart                 | Running on the Oracle VM; tomorrow's prices appear within 10 min of publication; zero 429s in a week of logs; public page Lighthouse ≥ 95                                                                                                                                             |
-| **2 — Jobs & plans** (weekends 3–4) | `planner` package, jobs API, job workflow (timers, re-plan signals, cancel), 3-option preview, Web Push, iCal             | Property tests: plan never leaves the window, delivers exactly E kWh, greedy = brute force for n ≤ 12, contiguous plans are contiguous; e2e: create job → provisional plan → prices land → plan v2 → notifications at slot boundaries                                                 |
-| **3 — Integrations** (weekend 5)    | evcc tariff feed + plan push, HA MQTT discovery, signed webhooks, feed-token rotation, envelope encryption                | evcc instance in CI (docker) consumes the feed and shows the same cheapest window; HA test instance auto-discovers the sensors                                                                                                                                                        |
-| **4 — Proof & reach**               | Eloverblik verified savings, Easee direct, Expo app, ENTSO-E fallback, provisional-price estimator evaluation             | Savings page shows planned vs actual cost from meter data; estimator error reported (MAE) on 3 months of history                                                                                                                                                                      |
-| **5 — Hardening**                   | Multi-user mode, quotas, backups/restore drill, observability (OTel → Prometheus/Grafana), tariff-mapping alerts          | Restore from backup tested; tariff mapping check alerts on a simulated code change                                                                                                                                                                                                    |
+| Phase                             | Scope                                                                                                                                                                                  | Definition of done                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0 — Foundations** ✅ 2026-10-28 | Monorepo (pnpm, Turborepo, Biome, CI), Drizzle schema + migration, `eds-client` with recorded fixtures, `pricing` package                                                              | Done: worked example reproduced to the øre (1.66 / 4.35); property tests for breakdown, monotonicity, local-hour tariffs and day tiling over 40 years; DST days priced at 92/100 slots; missing or overlapping charges throw; migration applied to Postgres 16 with constraint checks (schema ported to D1 when hosting moved to Cloudflare) |
+| **1 — Live prices**               | D1 + reference data and tariff mappings, `apps/api` Worker (one cron for ingestion, public price/CO₂/cheapest API), `apps/web` Next.js page with stacked 15-min chart, deploy pipeline | Live on Cloudflare; tomorrow's prices appear within 10 min of publication; no unrecovered 429s in a week; every handler under the 10 ms CPU limit; public page Lighthouse ≥ 95                                                                                                                                                               |
+| **2 — Jobs & plans**              | `planner` package, jobs API, `JobWorkflow` (sleep to boundaries, `waitForEvent` re-plans, cancel), 3-option preview, Web Push, iCal                                                    | Property tests: plan never leaves the window, delivers exactly E kWh, greedy = brute force for n ≤ 12, contiguous plans are contiguous; e2e (local `wrangler dev`): create job → provisional plan → prices land → plan v2 → notifications at slot boundaries                                                                                 |
+| **3 — Integrations**              | evcc tariff feed (+ plan push when reachable), Home Assistant feed, signed webhooks, feed-token rotation, envelope encryption                                                          | evcc instance in CI (Docker) consumes the feed and shows the same cheapest window; HA test instance reads the feed sensors                                                                                                                                                                                                                   |
+| **4 — Proof & reach**             | Eloverblik verified savings, Easee direct, Expo app, ENTSO-E fallback, provisional-price estimator evaluation                                                                          | Savings page shows planned vs actual cost from meter data; estimator error reported (MAE) on 3 months of history                                                                                                                                                                                                                             |
+| **5 — Hardening**                 | Multi-user mode, quotas, backups (D1 Time Travel + nightly `wrangler d1 export`), observability (Workers Logs + analytics), tariff-mapping alerts                                      | Restore from an export tested; tariff mapping check alerts on a simulated code change                                                                                                                                                                                                                                                        |
 
 ---
 
@@ -717,8 +598,8 @@ wattslot/
 - Easee API: https://developer.easee.com/docs/authentication-1 · Tesla Fleet API billing: https://developer.tesla.com/docs/fleet-api/billing-and-limits
 - Home Assistant MQTT discovery: https://www.home-assistant.io/integrations/mqtt/
 - Web Push on iOS: https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/
-- Oracle Always Free: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
-- Temporal self-hosting: https://docs.temporal.io/self-hosted-guide/deployment
-- OpenBao Transit: https://openbao.org/docs/secrets/transit/ · OWASP secrets management: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html
+- Cloudflare Workers limits: https://developers.cloudflare.com/workers/platform/limits/ · D1 pricing: https://developers.cloudflare.com/d1/platform/pricing/
+- Cloudflare Workflows limits: https://developers.cloudflare.com/workflows/reference/limits/ · events: https://developers.cloudflare.com/workflows/build/events-and-parameters/
+- OWASP secrets management: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html
 
 Data attribution: Source: Energinet (www.energidataservice.dk), CC BY 4.0.
