@@ -15,6 +15,7 @@ The price you pay isn't the spot price. In Denmark it's spot + your grid company
 | [`@wattslot/planner`](./packages/planner)       | Pure functions: cheapest contiguous window and cheapest individual slots, property-tested against brute force.                                                             |
 | [`@wattslot/db`](./packages/db)                 | D1 (SQLite) schema with Drizzle, migrations, and household tariffs for 35 Danish grid companies (31 supported, 99.7% of metering points).                                  |
 | [`@wattslot/api`](./apps/api)                   | Cloudflare Worker: Hono REST API with OpenAPI at `/openapi.json`. AGPL-3.0.                                                                                                |
+| [`@wattslot/web`](./apps/web)                   | The website: a Next.js static export served by the same Worker — price chart, cheapest window, English and Danish. AGPL-3.0.                                               |
 
 ## Example
 
@@ -39,9 +40,10 @@ pnpm test         # tests only
 pnpm lint:fix     # format and fix with Biome
 pnpm db:generate  # generate a migration after changing packages/db/src/schema.ts
 
-# run the API locally (Cloudflare's runtime, local D1)
+# run the whole site locally (Cloudflare's runtime, local D1)
+pnpm --filter @wattslot/web build
 pnpm --filter @wattslot/api db:migrate:local
-pnpm --filter @wattslot/api dev   # http://localhost:8787/v1/grid-companies?zone=DK2
+pnpm --filter @wattslot/api dev   # http://localhost:8787 (website) and /v1/… (API)
 curl 'http://localhost:8787/__scheduled?cron=*/5+*+*+*+*'   # run the ingestion cron now
 ```
 
@@ -61,7 +63,7 @@ Tests run against recorded API responses in [`fixtures/eds`](./fixtures/eds), in
 
 ## Architecture
 
-One Cloudflare Worker ingests prices on a 5-minute cron, stores them in D1 and serves the API; Cloudflare Workflows will run the per-job schedules; the web app runs on Workers via OpenNext. See [PLAN.md §4](./PLAN.md#4-architecture).
+One Cloudflare Worker ingests prices on a 5-minute cron, stores them in D1, serves the API, and serves the website — a Next.js static export — as static assets from the edge. Cloudflare Workflows will run the per-job schedules. See [PLAN.md §4](./PLAN.md#4-architecture).
 
 ## Data
 
