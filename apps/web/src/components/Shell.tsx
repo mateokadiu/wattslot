@@ -8,7 +8,10 @@ export function Shell({ locale }: { locale: Locale }) {
   return (
     <div className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
       <header className="flex items-center justify-between py-6">
-        <a href={locale === 'da' ? '/da/' : '/'} className="text-lg font-semibold tracking-tight">
+        <a
+          href={locale === 'da' ? '/da/' : '/'}
+          className="font-mono text-base font-semibold tracking-tight"
+        >
           watt<span className="text-[var(--accent)]">slot</span>
         </a>
         <nav className="flex items-center gap-4 text-sm text-[var(--muted)]">
@@ -26,7 +29,9 @@ export function Shell({ locale }: { locale: Locale }) {
       </header>
       <main>
         <h1 className="max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">{t.tagline}</h1>
-        <p className="mt-3 max-w-3xl text-[var(--muted)]">{t.lede}</p>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--muted)] sm:text-base">
+          {t.lede}
+        </p>
         <div className="mt-8">
           <Dashboard locale={locale} />
         </div>

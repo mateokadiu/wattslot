@@ -1,24 +1,29 @@
 'use client';
 
-import { cheapestSlots, cheapestWindow } from '@wattslot/planner';
+import { cheapestWindow } from '@wattslot/planner';
 import { localTime } from '@wattslot/pricing';
 import { useEffect, useMemo, useState } from 'react';
 import { type Co2, type GridCompany, getJson, type Prices, type Zone } from '@/lib/api';
 import type { PriceSlot } from '@/lib/chart';
-import { clock, duration, price } from '@/lib/format';
+import { clock, duration, kwh, price } from '@/lib/format';
 import { type Dictionary, dictionaries, type Locale } from '@/lib/i18n';
-import { PriceChart } from './PriceChart';
+import { planTask, SLOT_MS, slotsFor, TASKS, type Task, verdict } from '@/lib/insights';
+import { type ChartMode, PriceChart } from './PriceChart';
 
-const SLOT = 900_000;
-const DURATIONS = [1, 2, 3, 4] as const;
-const DEFAULTS = { zone: 'DK2', gln: '5790000705689', hours: 2 };
+const DEFAULTS = {
+  zone: 'DK2',
+  gln: '5790000705689',
+  task: 'dishwasher',
+  mode: 'level' as ChartMode,
+};
 const STORAGE_KEY = 'wattslot:prefs';
+const DAY_MS = 24 * 3_600_000;
 
 interface Prefs {
   zone: string;
   gln: string;
-  hours: number;
-  pause: boolean;
+  task: string;
+  mode: ChartMode;
 }
 
 function readPrefs(): Prefs {
@@ -29,12 +34,13 @@ function readPrefs(): Prefs {
   } catch {
     stored = {};
   }
-  const hours = Number(url.get('hours') ?? stored.hours ?? DEFAULTS.hours);
+  const task = url.get('task') ?? stored.task ?? DEFAULTS.task;
+  const mode = url.get('view') ?? stored.mode ?? DEFAULTS.mode;
   return {
     zone: url.get('zone') ?? stored.zone ?? DEFAULTS.zone,
     gln: url.get('gln') ?? stored.gln ?? DEFAULTS.gln,
-    hours: DURATIONS.includes(hours as (typeof DURATIONS)[number]) ? hours : DEFAULTS.hours,
-    pause: (url.get('pause') ?? String(stored.pause ?? false)) === 'true',
+    task: TASKS.some((t) => t.id === task) ? task : DEFAULTS.task,
+    mode: mode === 'breakdown' ? 'breakdown' : 'level',
   };
 }
 
@@ -43,14 +49,14 @@ function savePrefs(prefs: Prefs) {
   url.searchParams.set('zone', prefs.zone);
   if (prefs.gln) url.searchParams.set('gln', prefs.gln);
   else url.searchParams.delete('gln');
-  url.searchParams.set('hours', String(prefs.hours));
-  if (prefs.pause) url.searchParams.set('pause', 'true');
-  else url.searchParams.delete('pause');
+  url.searchParams.set('task', prefs.task);
+  if (prefs.mode === 'breakdown') url.searchParams.set('view', 'breakdown');
+  else url.searchParams.delete('view');
   window.history.replaceState(null, '', url);
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
   } catch {
-    // private mode: preferences just aren't remembered
+    // private browsing: preferences just aren't remembered
   }
 }
 
@@ -63,6 +69,12 @@ const toSlot = (s: Prices['slots'][number]): PriceSlot => ({
   vat: s.vat,
   total: s.total,
 });
+
+/** Whole percent, but never a misleading 0% for a real saving. */
+const pct = (fraction: number): string => {
+  const value = Math.round(fraction * 100);
+  return value === 0 && fraction > 0 ? '<1' : String(value);
+};
 
 export function Dashboard({ locale }: { locale: Locale }) {
   const t: Dictionary = dictionaries[locale];
@@ -89,7 +101,6 @@ export function Dashboard({ locale }: { locale: Locale }) {
     zones.find((z) => z.code === prefs?.zone) ?? zones.find((z) => z.code === DEFAULTS.zone);
   const timeZone = zone?.timeZone ?? 'Europe/Copenhagen';
 
-  // Grid companies for the zone; keep the chosen one if it belongs, else the largest supported.
   useEffect(() => {
     if (!prefs || !zone) return;
     if (!zone.fullPrice) {
@@ -134,8 +145,10 @@ export function Dashboard({ locale }: { locale: Locale }) {
     return () => controller.abort();
   }, [prefs, zone, timeZone]);
 
+  const task: Task = TASKS.find((x) => x.id === prefs?.task) ?? (TASKS[0] as Task);
+
   const view = useMemo(() => {
-    if (!prices || !prefs || nowMs === 0) return null;
+    if (!prices || nowMs === 0) return null;
     const slots = prices.slots.map(toSlot);
     const today = localTime(nowMs, timeZone).date;
     const byDay = {
@@ -145,48 +158,45 @@ export function Dashboard({ locale }: { locale: Locale }) {
     const tomorrowReady = byDay.tomorrow.length >= 92;
     const shown = day === 'tomorrow' && tomorrowReady ? 'tomorrow' : 'today';
     const daySlots = byDay[shown];
-    const candidates =
-      shown === 'today' ? daySlots.filter((s) => s.startMs + SLOT > nowMs) : daySlots;
-    const scored = candidates.map((s) => ({ startMs: s.startMs, score: s.total }));
-    const count = prefs.hours * 4;
-    const best = prefs.pause ? cheapestSlots(scored, count) : cheapestWindow(scored, count);
-    const average = (total: number) => total / count;
-    const dayAverage = daySlots.reduce((sum, s) => sum + s.total, 0) / Math.max(1, daySlots.length);
-    const startNow =
-      shown === 'today' && scored.length >= count
-        ? cheapestWindow(scored.slice(0, count), count)
-        : null;
-    const baseline =
-      shown === 'today' ? (startNow ? average(startNow.totalScore) : null) : dayAverage;
-    const current = byDay.today.find((s) => nowMs >= s.startMs && nowMs < s.startMs + SLOT);
+    // Advice looks ahead 24 hours from now, across midnight.
+    const ahead = slots.filter((s) => s.startMs + SLOT_MS > nowMs && s.startMs < nowMs + DAY_MS);
+    const plan = planTask(ahead, task, 'start');
+    const cheapestHour = cheapestWindow(
+      daySlots.map((s) => ({ startMs: s.startMs, score: s.total })),
+      4,
+    );
     const priciest = daySlots.reduce<PriceSlot | null>(
       (m, s) => (m === null || s.total > m.total ? s : m),
       null,
     );
+    const co2Map = new Map(
+      (co2?.slots ?? [])
+        .map((s) => [Date.parse(s.start), s.actual ?? s.forecast] as const)
+        .filter((e): e is readonly [number, number] => e[1] !== null),
+    );
+    const nowSlot = Math.floor(nowMs / SLOT_MS) * SLOT_MS;
     return {
       shown,
       tomorrowReady,
       daySlots,
-      best,
-      bestAverage: best ? average(best.totalScore) : null,
-      baseline,
-      current,
-      dayAverage,
+      verdict: verdict(slots, nowMs),
+      plan,
+      cheapestHour,
       priciest,
-      highlighted: new Set(best?.slots.map((s) => s.startMs) ?? []),
-      co2: new Map(
-        (co2?.slots ?? [])
-          .map((s) => [Date.parse(s.start), s.actual ?? s.forecast] as const)
-          .filter((e): e is readonly [number, number] => e[1] !== null),
-      ),
+      co2: co2Map,
+      co2Now: co2Map.get(nowSlot) ?? null,
+      highlighted: new Set(plan?.slots.map((s) => s.startMs) ?? []),
     };
-  }, [prices, prefs, co2, nowMs, day, timeZone]);
+  }, [prices, co2, nowMs, day, timeZone, task]);
 
   const unit =
     prices?.currency === 'DKK' && locale === 'da' ? 'kr./kWh' : `${prices?.currency ?? 'DKK'}/kWh`;
+  const money = (value: number) =>
+    prices?.currency === 'DKK'
+      ? t.money(price(value, locale))
+      : `${price(value, locale)} ${prices?.currency ?? ''}`;
   const company = companies.find((g) => g.gln === prefs?.gln);
   const update = (patch: Partial<Prefs>) => prefs && setPrefs({ ...prefs, ...patch });
-
   const note =
     prices?.mode === 'spot-only'
       ? !zone?.fullPrice
@@ -196,20 +206,47 @@ export function Dashboard({ locale }: { locale: Locale }) {
           : t.companySpotOnly(company?.name ?? prefs.gln)
       : null;
 
-  const fieldClass =
-    'mt-1 block w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]';
+  const v = view?.verdict;
+  const headline =
+    !v || v.kind === 'unknown'
+      ? t.verdictUnknown
+      : v.kind === 'now'
+        ? t.verdictNow
+        : t.verdictWait(clock(v.from, timeZone), pct(v.saving));
+  const verdictTone =
+    v?.kind === 'wait' ? 'var(--expensive)' : v?.kind === 'now' ? 'var(--cheap)' : 'var(--muted)';
+
+  const field =
+    'mt-1.5 block w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]';
+  const pill =
+    'rounded-md px-3 py-1.5 text-sm transition-colors aria-selected:bg-[var(--foreground)] aria-selected:text-[var(--background)] aria-pressed:bg-[var(--foreground)] aria-pressed:text-[var(--background)] disabled:opacity-40';
 
   return (
-    <section aria-labelledby="dashboard-title" className="space-y-6">
-      <h2 id="dashboard-title" className="sr-only">
-        {t.chartLabel}
-      </h2>
+    <section aria-label={t.chartLabel} className="space-y-4">
+      {/* On phones, keep the answer in view while scrolling. Always rendered, so it never shifts the page. */}
+      <div className="sticky top-0 z-20 -mx-4 h-10 border-b border-[var(--border)] bg-[var(--background)]/90 px-4 backdrop-blur sm:hidden">
+        <p className="flex h-full items-center gap-2 text-sm">
+          <span className="size-2 shrink-0 rounded-full" style={{ background: verdictTone }} />
+          {v && v.kind !== 'unknown' ? (
+            <>
+              <span className="font-mono tabular-nums">
+                {price(v.current.total, locale)} {unit}
+              </span>
+              <span className="truncate text-[var(--muted)]">· {headline}</span>
+            </>
+          ) : (
+            <span className="text-[var(--muted)]">
+              {state === 'loading' ? t.loading : headline}
+            </span>
+          )}
+        </p>
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm font-medium">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="label block">
           {t.priceArea}
           <select
-            className={fieldClass}
+            className={`${field} font-sans normal-case tracking-normal text-[var(--foreground)]`}
             value={prefs?.zone ?? DEFAULTS.zone}
             onChange={(e) => update({ zone: e.target.value })}
           >
@@ -222,10 +259,10 @@ export function Dashboard({ locale }: { locale: Locale }) {
             ))}
           </select>
         </label>
-        <label className="block text-sm font-medium">
+        <label className="label block">
           {t.gridCompany}
           <select
-            className={fieldClass}
+            className={`${field} font-sans normal-case tracking-normal text-[var(--foreground)]`}
             value={prefs?.gln ?? ''}
             disabled={!zone?.fullPrice}
             onChange={(e) => update({ gln: e.target.value })}
@@ -240,133 +277,185 @@ export function Dashboard({ locale }: { locale: Locale }) {
         </label>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div
-          role="tablist"
-          aria-label={t.today}
-          className="inline-flex rounded-md border border-[var(--border)] p-0.5"
-        >
-          {(['today', 'tomorrow'] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              role="tab"
-              aria-selected={view?.shown === d}
-              disabled={d === 'tomorrow' && !view?.tomorrowReady}
-              title={d === 'tomorrow' && !view?.tomorrowReady ? t.tomorrowPending : undefined}
-              onClick={() => setDay(d)}
-              className="rounded px-3 py-1.5 text-sm aria-selected:bg-[var(--foreground)] aria-selected:text-[var(--background)] disabled:opacity-40"
-            >
-              {t[d]}
-            </button>
-          ))}
-        </div>
-        <fieldset className="flex items-center gap-2 text-sm">
-          <legend className="sr-only">{t.duration}</legend>
-          <span className="text-[var(--muted)]">{t.duration}</span>
-          {DURATIONS.map((h) => (
-            <button
-              key={h}
-              type="button"
-              aria-pressed={prefs?.hours === h}
-              onClick={() => update({ hours: h })}
-              className="rounded-md border border-[var(--border)] px-2.5 py-1 tabular-nums aria-pressed:border-[var(--accent)] aria-pressed:bg-[var(--accent)] aria-pressed:text-[var(--on-accent)]"
-            >
-              {h}
-              {t.hourShort}
-            </button>
-          ))}
-        </fieldset>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={prefs?.pause ?? false}
-            onChange={(e) => update({ pause: e.target.checked })}
-            className="size-4 accent-[var(--accent)]"
-          />
-          {t.canPause}
-        </label>
-      </div>
-
       {note && (
         <p
-          className="rounded-md border border-[var(--warn-border)] bg-[var(--warn-bg)] px-4 py-3 text-sm"
+          className="rounded-lg border border-[var(--warn-border)] bg-[var(--warn-bg)] px-4 py-3 text-sm"
           role="status"
         >
           <strong className="font-semibold">{t.spotOnly}.</strong> {note}
         </p>
       )}
-
       {state === 'error' && (
         <p
-          className="rounded-md border border-[var(--warn-border)] bg-[var(--warn-bg)] px-4 py-3 text-sm"
+          className="rounded-lg border border-[var(--warn-border)] bg-[var(--warn-bg)] px-4 py-3 text-sm"
           role="alert"
         >
           {t.error}
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3" aria-live="polite" aria-busy={state === 'loading'}>
-        <Card label={view?.shown === 'today' ? t.now : t.dayAverage}>
-          {view && (view.shown === 'today' ? view.current : true) ? (
-            <>
-              <Value>
-                {price(
-                  view.shown === 'today' ? (view.current?.total ?? 0) : view.dayAverage,
-                  locale,
+      <div className="grid gap-4 lg:grid-cols-5">
+        <article
+          className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 lg:col-span-3"
+          aria-live="polite"
+        >
+          <p className="label">{t.now}</p>
+          {v && v.kind !== 'unknown' ? (
+            <div className="fade-in" key={`${v.current.startMs}${prices?.gridCompany?.gln ?? ''}`}>
+              <p className="mt-3 font-mono text-5xl font-semibold tabular-nums tracking-tight sm:text-6xl">
+                {price(v.current.total, locale)}
+                <span className="ml-2 text-base font-normal text-[var(--muted)]">{unit}</span>
+              </p>
+              <p className="mt-1 font-mono text-xs text-[var(--muted)]">
+                {t.until} {clock(v.current.startMs + SLOT_MS, timeZone)}
+              </p>
+              <p className="mt-5 flex items-center gap-2.5 text-lg font-medium">
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ background: verdictTone }}
+                />
+                {headline}
+              </p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {v.kind === 'wait'
+                  ? t.verdictWaitDetail(`${price(v.average, locale)} ${unit}`)
+                  : t.verdictNowDetail}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-3">
+              <div className="h-14 w-48 animate-pulse rounded-lg bg-[var(--grid)]" />
+              <p className="text-sm text-[var(--muted)]">
+                {state === 'loading' ? t.loading : headline}
+              </p>
+            </div>
+          )}
+        </article>
+
+        <article className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 lg:col-span-2">
+          <div role="tablist" aria-label={t.duration} className="grid grid-cols-2 gap-1">
+            {TASKS.map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                role="tab"
+                aria-selected={task.id === x.id}
+                onClick={() => update({ task: x.id })}
+                className={pill}
+              >
+                {t.tasks[x.id as keyof typeof t.tasks]}
+              </button>
+            ))}
+          </div>
+          {view?.plan ? (
+            <div className="fade-in mt-5" key={`${task.id}${view.plan.start}`}>
+              <p className="label">{task.canPause ? t.spread : t.startAt}</p>
+              <p className="mt-1 font-mono text-3xl font-semibold tabular-nums tracking-tight">
+                {task.canPause
+                  ? `${clock(view.plan.start, timeZone)}–${clock(view.plan.end, timeZone)}`
+                  : clock(view.plan.start, timeZone)}
+                {!task.canPause && (
+                  <span className="ml-2 text-base font-normal text-[var(--muted)]">
+                    {t.doneBy} {clock(view.plan.end, timeZone)}
+                  </span>
                 )}
-              </Value>
-              <Sub>
-                {unit}
-                {view.shown === 'today' && view.current
-                  ? ` · ${t.until} ${clock(view.current.startMs + SLOT, timeZone)}`
-                  : ''}
-              </Sub>
-            </>
-          ) : view ? (
-            <Value>–</Value>
+              </p>
+              <p className="mt-3 text-sm">
+                {t.costs}{' '}
+                <strong className="font-mono font-semibold">{money(view.plan.cost)}</strong>
+              </p>
+              <p className="mt-0.5 text-sm" style={{ color: 'var(--accent)' }}>
+                {view.plan.baselineCost !== null && view.plan.baselineCost - view.plan.cost >= 0.005
+                  ? t.savesVsNow(
+                      money(view.plan.baselineCost - view.plan.cost),
+                      pct(1 - view.plan.cost / view.plan.baselineCost),
+                    )
+                  : t.noSaving}
+              </p>
+              <p className="mt-3 text-xs text-[var(--muted)]">
+                {task.id === 'ev'
+                  ? t.evAssumption
+                  : t.taskAssumption(
+                      kwh(task.energyKwh, locale),
+                      duration(slotsFor(task) / 4, t.words),
+                    )}
+              </p>
+            </div>
           ) : (
-            <Skeleton />
+            <p className="mt-5 text-sm text-[var(--muted)]">{view ? t.taskNoFit : t.loading}</p>
           )}
-        </Card>
-        <Card label={`${t.cheapest} ${duration(prefs?.hours ?? DEFAULTS.hours, t.words)}`} accent>
-          {view?.best && view.bestAverage !== null ? (
-            <>
-              <Value>
-                {prefs?.pause
-                  ? t.split
-                  : `${clock(view.best.slots[0]?.startMs ?? 0, timeZone)}–${clock((view.best.slots.at(-1)?.startMs ?? 0) + SLOT, timeZone)}`}
-              </Value>
-              <Sub>
-                {price(view.bestAverage, locale)} {unit}
-                {view.baseline !== null && view.baseline > view.bestAverage
-                  ? ` · ${Math.round((1 - view.bestAverage / view.baseline) * 100)}% ${t.cheaper} ${view.shown === 'today' ? t.vsNow : t.vsAverage}`
-                  : ''}
-              </Sub>
-            </>
-          ) : view ? (
-            <Sub>{t.noWindow}</Sub>
-          ) : (
-            <Skeleton />
-          )}
-        </Card>
-        <Card label={t.priciest}>
-          {view?.priciest ? (
-            <>
-              <Value>{clock(view.priciest.startMs, timeZone)}</Value>
-              <Sub>
-                {price(view.priciest.total, locale)} {unit}
-              </Sub>
-            </>
-          ) : (
-            <Skeleton />
-          )}
-        </Card>
+        </article>
       </div>
 
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-        <Legend t={t} showCo2={(view?.co2.size ?? 0) > 0} />
-        <div className="mt-3 min-h-[300px] overflow-hidden">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Stat label={t.cheapestHour}>
+          {view?.cheapestHour ? (
+            <>
+              <StatValue>{clock(view.cheapestHour.slots[0]?.startMs ?? 0, timeZone)}</StatValue>
+              <StatSub>
+                {price(view.cheapestHour.totalScore / 4, locale)} {unit}
+              </StatSub>
+            </>
+          ) : (
+            <StatValue>–</StatValue>
+          )}
+        </Stat>
+        <Stat label={t.priciest}>
+          {view?.priciest ? (
+            <>
+              <StatValue>{clock(view.priciest.startMs, timeZone)}</StatValue>
+              <StatSub>
+                {price(view.priciest.total, locale)} {unit}
+              </StatSub>
+            </>
+          ) : (
+            <StatValue>–</StatValue>
+          )}
+        </Stat>
+        <Stat label={t.co2Now} className="col-span-2 sm:col-span-1">
+          <StatValue>{view?.co2Now != null ? Math.round(view.co2Now) : '–'}</StatValue>
+          <StatSub>g/kWh</StatSub>
+        </Stat>
+      </div>
+
+      <article className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div
+            role="tablist"
+            aria-label={t.today}
+            className="inline-flex rounded-lg border border-[var(--border)] p-0.5"
+          >
+            {(['today', 'tomorrow'] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                role="tab"
+                aria-selected={view?.shown === d}
+                disabled={d === 'tomorrow' && !view?.tomorrowReady}
+                title={d === 'tomorrow' && !view?.tomorrowReady ? t.tomorrowPending : undefined}
+                onClick={() => setDay(d)}
+                className={pill}
+              >
+                {t[d]}
+              </button>
+            ))}
+          </div>
+          <div className="inline-flex rounded-lg border border-[var(--border)] p-0.5">
+            {(['level', 'breakdown'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={(prefs?.mode ?? 'level') === m}
+                onClick={() => update({ mode: m })}
+                className={pill}
+              >
+                {t.chartModes[m]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Legend t={t} mode={prefs?.mode ?? 'level'} showCo2={(view?.co2.size ?? 0) > 0} />
+        <div className="mt-3 min-h-[300px]">
           {view && view.daySlots.length > 0 ? (
             <PriceChart
               slots={view.daySlots}
@@ -376,6 +465,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
               timeZone={timeZone}
               unit={unit}
               locale={locale}
+              mode={prefs?.mode ?? 'level'}
               t={t}
             />
           ) : (
@@ -385,92 +475,120 @@ export function Dashboard({ locale }: { locale: Locale }) {
           )}
         </div>
         {view && view.daySlots.length > 0 && (
-          <details className="mt-3 text-sm">
-            <summary className="cursor-pointer text-[var(--muted)]">{t.showTable}</summary>
-            <div className="mt-2 max-h-80 overflow-auto">
-              <table className="w-full text-right tabular-nums">
-                <thead className="sticky top-0 bg-[var(--card)] text-[var(--muted)]">
-                  <tr>
-                    <th className="py-1 text-left font-medium">{t.time}</th>
-                    <th className="font-medium">{t.series.spot}</th>
-                    <th className="font-medium">{t.series.gridTariff}</th>
-                    <th className="font-medium">{t.series.tsoTariffs}</th>
-                    <th className="font-medium">{t.series.electricityTax}</th>
-                    <th className="font-medium">{t.series.vat}</th>
-                    <th className="font-medium">{t.total}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {view.daySlots.map((s) => (
-                    <tr
-                      key={s.startMs}
-                      className={view.highlighted.has(s.startMs) ? 'bg-[var(--highlight)]' : ''}
-                    >
-                      <td className="py-0.5 text-left">{clock(s.startMs, timeZone)}</td>
-                      <td>{price(s.spot, locale)}</td>
-                      <td>{price(s.gridTariff, locale)}</td>
-                      <td>{price(s.tsoTariffs, locale)}</td>
-                      <td>{price(s.electricityTax, locale)}</td>
-                      <td>{price(s.vat, locale)}</td>
-                      <td className="font-medium">{price(s.total, locale)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
+          <PriceTable
+            t={t}
+            slots={view.daySlots}
+            highlighted={view.highlighted}
+            timeZone={timeZone}
+            locale={locale}
+          />
         )}
-      </div>
+      </article>
     </section>
   );
 }
 
-function Card({
+function Stat({
   label,
-  accent,
+  className = '',
   children,
 }: {
   label: string;
-  accent?: boolean;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className={`rounded-xl border bg-[var(--card)] p-4 ${accent ? 'border-[var(--accent)]' : 'border-[var(--border)]'}`}
-    >
-      <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">{label}</p>
-      <div className="mt-2 min-h-[3.25rem]">{children}</div>
+    <div className={`rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 ${className}`}>
+      <p className="label">{label}</p>
+      <div className="mt-2">{children}</div>
     </div>
   );
 }
-
-const Value = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-2xl font-semibold tabular-nums tracking-tight">{children}</p>
+const StatValue = ({ children }: { children: React.ReactNode }) => (
+  <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight">{children}</p>
 );
-const Sub = ({ children }: { children: React.ReactNode }) => (
-  <p className="mt-0.5 text-sm text-[var(--muted)]">{children}</p>
+const StatSub = ({ children }: { children: React.ReactNode }) => (
+  <p className="font-mono text-xs text-[var(--muted)]">{children}</p>
 );
-const Skeleton = () => <div className="h-8 w-24 animate-pulse rounded bg-[var(--grid)]" />;
 
-function Legend({ t, showCo2 }: { t: Dictionary; showCo2: boolean }) {
-  const items = ['spot', 'gridTariff', 'tsoTariffs', 'electricityTax', 'vat'] as const;
+function Legend({ t, mode, showCo2 }: { t: Dictionary; mode: ChartMode; showCo2: boolean }) {
+  const items =
+    mode === 'level'
+      ? (['cheap', 'normal', 'expensive'] as const).map((l) => ({
+          key: l,
+          color: `var(--${l})`,
+          label: t.levels[l],
+        }))
+      : (['spot', 'gridTariff', 'tsoTariffs', 'electricityTax', 'vat'] as const).map((s) => ({
+          key: s,
+          color: `var(--${s})`,
+          label: t.series[s],
+        }));
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
-      {items.map((series) => (
-        <li key={series} className="flex items-center gap-1.5">
-          <span
-            className="inline-block size-2.5 rounded-sm"
-            style={{ background: `var(--${series})` }}
-          />
-          {t.series[series]}
+    <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
+      {items.map((item) => (
+        <li key={item.key} className="flex items-center gap-1.5">
+          <span className="inline-block size-2.5 rounded-sm" style={{ background: item.color }} />
+          {item.label}
         </li>
       ))}
       {showCo2 && (
         <li className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-3 bg-[var(--co2)]" />
+          <span className="inline-block w-3 border-t-2 border-dashed border-[var(--co2)]" />
           {t.series.co2}
         </li>
       )}
     </ul>
+  );
+}
+
+function PriceTable({
+  t,
+  slots,
+  highlighted,
+  timeZone,
+  locale,
+}: {
+  t: Dictionary;
+  slots: PriceSlot[];
+  highlighted: ReadonlySet<number>;
+  timeZone: string;
+  locale: Locale;
+}) {
+  return (
+    <details className="mt-4 text-sm">
+      <summary className="cursor-pointer text-[var(--muted)]">{t.showTable}</summary>
+      <div className="mt-2 max-h-80 overflow-auto">
+        <table className="w-full text-right font-mono text-xs tabular-nums">
+          <thead className="sticky top-0 bg-[var(--card)] text-[var(--muted)]">
+            <tr>
+              <th className="py-1 text-left font-medium">{t.time}</th>
+              <th className="font-medium">{t.series.spot}</th>
+              <th className="font-medium">{t.series.gridTariff}</th>
+              <th className="font-medium">{t.series.tsoTariffs}</th>
+              <th className="font-medium">{t.series.electricityTax}</th>
+              <th className="font-medium">{t.series.vat}</th>
+              <th className="font-medium">{t.total}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slots.map((s) => (
+              <tr
+                key={s.startMs}
+                className={highlighted.has(s.startMs) ? 'bg-[var(--highlight)]' : ''}
+              >
+                <td className="py-0.5 text-left">{clock(s.startMs, timeZone)}</td>
+                <td>{price(s.spot, locale)}</td>
+                <td>{price(s.gridTariff, locale)}</td>
+                <td>{price(s.tsoTariffs, locale)}</td>
+                <td>{price(s.electricityTax, locale)}</td>
+                <td>{price(s.vat, locale)}</td>
+                <td className="font-semibold">{price(s.total, locale)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }

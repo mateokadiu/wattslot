@@ -31,3 +31,8 @@ export function duration(hours: number, words: { hour: string; hours: string; mi
   const m = minutes === 0 ? '' : `${minutes} ${words.min}`;
   return [h, m].filter(Boolean).join(' ');
 }
+
+/** Energy in kWh with at most one decimal: 1.1, 0.9, 20 (or 1,1 in Danish). */
+export function kwh(value: number, locale: 'en' | 'da'): string {
+  return value.toLocaleString(locale === 'da' ? 'da-DK' : 'en-GB', { maximumFractionDigits: 1 });
+}

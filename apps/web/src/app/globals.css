@@ -1,44 +1,57 @@
 @import "tailwindcss";
 
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* Neutrals and type follow mateokadiu.com; the accent is green because here green means cheap. */
 :root {
-  --background: #f6f6f3;
-  --foreground: #16171a;
-  --card: #ffffff;
-  --border: #e2e2dc;
-  --muted: #5f636a;
-  --grid: #ecece7;
-  --axis: #a9adb4;
-  --accent: #1d4ed8;
-  --on-accent: #ffffff;
-  --highlight: rgb(16 185 129 / 0.15);
-  --warn-bg: #fff7e6;
-  --warn-border: #f3d9a4;
-  --spot: #3b82f6;
-  --gridTariff: #f59e0b;
-  --tsoTariffs: #8b5cf6;
-  --electricityTax: #64748b;
-  --vat: #cbd5e1;
-  --co2: #047857;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.17 0 0);
+  --card: oklch(1 0 0);
+  --border: oklch(0.91 0 0);
+  --muted: oklch(0.47 0 0);
+  --grid: oklch(0.94 0 0);
+  --axis: oklch(0.72 0 0);
+  --accent: oklch(0.5 0.12 160);
+  --on-accent: oklch(1 0 0);
+  --highlight: oklch(0.6 0.15 160 / 0.12);
+  --warn-bg: oklch(0.97 0.04 85);
+  --warn-border: oklch(0.86 0.09 85);
+  --cheap: oklch(0.62 0.15 160);
+  --normal: oklch(0.76 0.14 75);
+  --expensive: oklch(0.62 0.2 25);
+  --spot: oklch(0.62 0.17 255);
+  --gridTariff: oklch(0.76 0.14 75);
+  --tsoTariffs: oklch(0.6 0.18 295);
+  --electricityTax: oklch(0.55 0.03 255);
+  --vat: oklch(0.85 0.01 255);
+  --co2: oklch(0.5 0.12 160);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0c0d0f;
-    --foreground: #ececec;
-    --card: #15171a;
-    --border: #272a30;
-    --muted: #a1a6ae;
-    --grid: #1f2226;
-    --axis: #43474f;
-    --accent: #60a5fa;
-    --on-accent: #0c0d0f;
-    --highlight: rgb(52 211 153 / 0.16);
-    --warn-bg: #2a2111;
-    --warn-border: #5c4519;
-    --electricityTax: #94a3b8;
-    --vat: #475569;
-    --co2: #34d399;
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --border: oklch(0.269 0 0);
+    --muted: oklch(0.708 0 0);
+    --grid: oklch(0.245 0 0);
+    --axis: oklch(0.38 0 0);
+    --accent: oklch(0.78 0.14 160);
+    --on-accent: oklch(0.17 0 0);
+    --highlight: oklch(0.72 0.15 160 / 0.14);
+    --warn-bg: oklch(0.25 0.04 75);
+    --warn-border: oklch(0.42 0.08 75);
+    --cheap: oklch(0.72 0.15 160);
+    --normal: oklch(0.78 0.14 75);
+    --expensive: oklch(0.66 0.2 25);
+    --electricityTax: oklch(0.65 0.03 255);
+    --vat: oklch(0.42 0.02 255);
+    --co2: oklch(0.78 0.14 160);
     color-scheme: dark;
   }
 }
@@ -46,5 +59,41 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bar {
+  transition:
+    y 0.5s var(--ease),
+    height 0.5s var(--ease),
+    fill 0.25s ease,
+    opacity 0.2s ease;
+}
+
+.fade-in {
+  animation: fade-in 0.4s var(--ease) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar,
+  .fade-in {
+    transition: none;
+    animation: none;
+  }
 }

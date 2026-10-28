@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { niceTicks, type PriceSlot, stackSlot, valueExtent, yScale } from '../src/lib/chart';
-import { clock, duration, price } from '../src/lib/format';
+import { clock, duration, kwh, price } from '../src/lib/format';
 
 const slot = (parts: Partial<PriceSlot>): PriceSlot => ({
   startMs: 0,
@@ -62,5 +62,8 @@ describe('format', () => {
     expect(duration(2, words)).toBe('2 hours');
     expect(duration(1.5, words)).toBe('1 hour 30 min');
     expect(duration(0.75, words)).toBe('45 min');
+    expect(kwh(1.1, 'en')).toBe('1.1');
+    expect(kwh(20, 'da')).toBe('20');
+    expect(kwh(0.9, 'da')).toBe('0,9');
   });
 });
