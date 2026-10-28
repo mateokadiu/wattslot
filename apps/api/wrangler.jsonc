@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-07-01",
   "observability": { "enabled": true },
+  "routes": [{ "pattern": "wattslot.mateokadiu.com", "custom_domain": true }],
   // The website is a static export served from the edge; only the API runs Worker code.
   "assets": {
     "directory": "../web/out",
@@ -16,8 +17,7 @@
     {
       "binding": "DB",
       "database_name": "wattslot",
-      // Replaced with the real database id at deploy time; any value works for local dev.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "2800affd-18a7-41e7-8bca-db8c46163b4f",
       "migrations_dir": "../../packages/db/migrations"
     }
   ]
