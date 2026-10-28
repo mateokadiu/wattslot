@@ -4,7 +4,9 @@ Plans when to use electricity — EV charging, heat pumps, dishwashers — using
 
 The price you pay isn't the spot price. In Denmark it's spot + your grid company's time-of-use tariff + Energinet's tariffs + electricity tax + VAT, and the grid tariff alone can be 9× higher at 17–21 than at night. wattslot computes the full price per 15-minute slot and plans around it.
 
-> **Status:** Phase 0 — pricing core and data client. See [PLAN.md](./PLAN.md) for the full design and roadmap.
+**Live:** [wattslot.mateokadiu.com](https://wattslot.mateokadiu.com) · API: [`/v1/prices`](https://wattslot.mateokadiu.com/v1/prices?zone=DK2&gln=5790000705689) · [OpenAPI](https://wattslot.mateokadiu.com/openapi.json)
+
+> **Status:** Phase 1 (live prices) is deployed. See [PLAN.md](./PLAN.md) for the full design and roadmap.
 
 ## Workspace
 
