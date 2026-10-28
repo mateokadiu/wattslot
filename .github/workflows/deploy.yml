@@ -1,0 +1,57 @@
+name: deploy
+
+# Deploys main to Cloudflare after ci has passed for that commit.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check deploy credentials
+        id: credentials
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice::Deploy skipped: set the CLOUDFLARE_API_TOKEN secret and CLOUDFLARE_ACCOUNT_ID variable."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.credentials.outputs.ready == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: pnpm/action-setup@v6
+        if: steps.credentials.outputs.ready == 'true'
+      - uses: actions/setup-node@v6
+        if: steps.credentials.outputs.ready == 'true'
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - if: steps.credentials.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Build the website
+        if: steps.credentials.outputs.ready == 'true'
+        run: pnpm build
+      - name: Apply database migrations
+        if: steps.credentials.outputs.ready == 'true'
+        run: pnpm --filter @wattslot/api exec wrangler d1 migrations apply wattslot --remote
+      - name: Deploy the Worker
+        if: steps.credentials.outputs.ready == 'true'
+        run: pnpm --filter @wattslot/api exec wrangler deploy
