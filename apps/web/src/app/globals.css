@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f6f3;
+  --foreground: #16171a;
+  --card: #ffffff;
+  --border: #e2e2dc;
+  --muted: #5f636a;
+  --grid: #ecece7;
+  --axis: #a9adb4;
+  --accent: #1d4ed8;
+  --on-accent: #ffffff;
+  --highlight: rgb(16 185 129 / 0.15);
+  --warn-bg: #fff7e6;
+  --warn-border: #f3d9a4;
+  --spot: #3b82f6;
+  --gridTariff: #f59e0b;
+  --tsoTariffs: #8b5cf6;
+  --electricityTax: #64748b;
+  --vat: #cbd5e1;
+  --co2: #047857;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0c0d0f;
+    --foreground: #ececec;
+    --card: #15171a;
+    --border: #272a30;
+    --muted: #a1a6ae;
+    --grid: #1f2226;
+    --axis: #43474f;
+    --accent: #60a5fa;
+    --on-accent: #0c0d0f;
+    --highlight: rgb(52 211 153 / 0.16);
+    --warn-bg: #2a2111;
+    --warn-border: #5c4519;
+    --electricityTax: #94a3b8;
+    --vat: #475569;
+    --co2: #34d399;
+    color-scheme: dark;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}

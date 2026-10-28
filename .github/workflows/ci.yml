@@ -26,6 +26,8 @@ jobs:
       - run: pnpm exec biome ci .
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Build the website
+        run: pnpm build
       - name: Migrations match the schema
         run: |
           pnpm db:generate

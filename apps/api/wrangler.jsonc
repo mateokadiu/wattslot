@@ -4,6 +4,12 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-07-01",
   "observability": { "enabled": true },
+  // The website is a static export served from the edge; only the API runs Worker code.
+  "assets": {
+    "directory": "../web/out",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/v1/*", "/health", "/openapi.json"]
+  },
   // The free plan allows 5 Cron Triggers per account; one dispatches every task.
   "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [

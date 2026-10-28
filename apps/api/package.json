@@ -8,7 +8,8 @@
     "dev": "wrangler dev --test-scheduled",
     "db:migrate:local": "wrangler d1 migrations apply wattslot --local",
     "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "predev": "node -e \"require('node:fs').mkdirSync('../web/out', { recursive: true })\""
   },
   "dependencies": {
     "@hono/zod-openapi": "^1.6.3",

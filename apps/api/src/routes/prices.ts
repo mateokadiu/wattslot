@@ -11,9 +11,9 @@ import {
   toMicro,
 } from '@wattslot/pricing';
 import { and, asc, eq, gte, lt } from 'drizzle-orm';
-import { openDb } from '../ingest/store.js';
-import { loadZone, type PricedRange, priceRange } from '../prices/service.js';
-import { ErrorBody, router } from '../router.js';
+import { openDb } from '../ingest/store.ts';
+import { loadZone, type PricedRange, priceRange } from '../prices/service.ts';
+import { ErrorBody, router } from '../router.ts';
 
 const iso = (ms: number) => new Date(ms).toISOString();
 const errors = {
@@ -226,13 +226,16 @@ export const priceRoutes = router()
       toMs,
       markup: toMicro(q.markup),
     });
-    c.header('Cache-Control', 'public, max-age=300');
+    const complete = priced.slots.length === (toMs - fromMs) / SLOT_MS;
+    // Past days never change; a range still waiting for prices must refresh quickly.
+    const maxAge = !complete ? 60 : toMs <= Date.now() ? 86_400 : 300;
+    c.header('Cache-Control', `public, max-age=${maxAge}`);
     return c.json(
       {
         ...header(priced),
         from: iso(fromMs),
         to: iso(toMs),
-        complete: priced.slots.length === (toMs - fromMs) / SLOT_MS,
+        complete,
         slots: priced.slots.map(toSlot),
       },
       200,
