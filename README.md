@@ -1,6 +1,6 @@
 # wattslot
 
-Plans when to use electricity — EV charging, heat pumps, dishwashers — using the price you actually pay and the grid's CO₂ forecast, at 15-minute resolution.
+Plans when to use electricity — EV charging, heat pumps, dishwashers — using the price you actually pay and the grid's CO₂ forecast, at 15-minute resolution. Runs on Cloudflare's free plan.
 
 The price you pay isn't the spot price. In Denmark it's spot + your grid company's time-of-use tariff + Energinet's tariffs + electricity tax + VAT, and the grid tariff alone can be 9× higher at 17–21 than at night. wattslot computes the full price per 15-minute slot and plans around it.
 
@@ -11,8 +11,8 @@ The price you pay isn't the spot price. In Denmark it's spot + your grid company
 | Package                                         | What it does                                                                                                                                                               |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`@wattslot/eds-client`](./packages/eds-client) | Typed client for [Energi Data Service](https://www.energidataservice.dk): day-ahead prices, CO₂ emissions and forecasts, DataHub tariffs. Zod-validated, rate-limit aware. |
-| [`@wattslot/pricing`](./packages/pricing)       | Pure functions: all-in price per 15-minute slot with a per-component breakdown, integer money maths, DST-correct local time.                                               |
-| [`@wattslot/db`](./packages/db)                 | Postgres schema (Drizzle) and migrations.                                                                                                                                  |
+| [`@wattslot/pricing`](./packages/pricing)       | Pure functions: all-in price per 15-minute slot with a per-component breakdown, integer money maths, DST-correct local time. Tested in Node and inside `workerd`.          |
+| [`@wattslot/db`](./packages/db)                 | D1 (SQLite) schema with Drizzle, and migrations.                                                                                                                           |
 
 ## Example
 
@@ -38,7 +38,11 @@ pnpm lint:fix     # format and fix with Biome
 pnpm db:generate  # generate a migration after changing packages/db/src/schema.ts
 ```
 
-Tests run against recorded API responses in [`fixtures/eds`](./fixtures/eds), including both daylight-saving days (92 and 100 slots) and a negative-price day.
+Tests run against recorded API responses in [`fixtures/eds`](./fixtures/eds), including both daylight-saving days (92 and 100 slots) and a negative-price day. The pricing tests also run inside `workerd` (Cloudflare's runtime) through Miniflare.
+
+## Architecture
+
+One Cloudflare Worker ingests prices on a 5-minute cron, stores them in D1 and serves the API; Cloudflare Workflows will run the per-job schedules; the web app runs on Workers via OpenNext. See [PLAN.md §4](./PLAN.md#4-architecture).
 
 ## Data
 
