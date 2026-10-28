@@ -39,17 +39,30 @@ export const priceZones = sqliteTable('price_zones', {
   fullPrice: bool('full_price').notNull().default(false),
 });
 
-export const gridCompanies = sqliteTable('grid_companies', {
-  gln: text('gln').primaryKey(),
-  name: text('name').notNull(),
-  zone: text('zone')
-    .notNull()
-    .references(() => priceZones.code),
-  /** Set by the nightly tariff-mapping check when tariff data looks stale or changed. */
-  degradedAtMs: integer('degraded_at_ms'),
-});
+export const gridCompanies = sqliteTable(
+  'grid_companies',
+  {
+    gln: text('gln').primaryKey(),
+    name: text('name').notNull(),
+    zone: text('zone')
+      .notNull()
+      .references(() => priceZones.code),
+    /** Connected consumption metering points (DataHub statistics) — roughly, customers. */
+    meteringPoints: integer('metering_points'),
+    /** `unsupported` companies fall back to spot-only pricing until their tariff is understood. */
+    support: text('support', { enum: ['supported', 'unsupported'] }).notNull(),
+    supportNote: text('support_note'),
+    /** Set by the nightly tariff-mapping check when tariff data looks stale or changed. */
+    degradedAtMs: integer('degraded_at_ms'),
+  },
+  (t) => [check('grid_companies_support', sql`${t.support} in ('supported', 'unsupported')`)],
+);
 
-/** Which DataHub charge code is the household tariff for each grid company. */
+/**
+ * The DataHub charge codes that make up a grid company's household tariff. Usually one
+ * `tariff`; some companies add a regional tariff (also `tariff`) or a time-limited `discount`,
+ * which counts as zero once it ends.
+ */
 export const tariffMappings = sqliteTable(
   'tariff_mappings',
   {
@@ -58,8 +71,12 @@ export const tariffMappings = sqliteTable(
       .references(() => gridCompanies.gln),
     customerType: text('customer_type').notNull(),
     chargeCode: text('charge_code').notNull(),
+    role: text('role', { enum: ['tariff', 'discount'] }).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.gln, t.customerType] })],
+  (t) => [
+    primaryKey({ columns: [t.gln, t.customerType, t.chargeCode] }),
+    check('tariff_mappings_role', sql`${t.role} in ('tariff', 'discount')`),
+  ],
 );
 
 // Market data --------------------------------------------------------------------------------

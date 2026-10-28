@@ -9,14 +9,20 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "generate": "drizzle-kit generate"
+    "generate": "drizzle-kit generate",
+    "discover": "tsx scripts/discover-grid-companies.ts",
+    "build:reference": "tsx scripts/build-reference-migration.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
+    "@wattslot/eds-client": "workspace:*",
+    "@wattslot/pricing": "workspace:*",
     "drizzle-kit": "^0.31.11",
-    "typescript": "^6.0.3"
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "zod": "^4.6.7"
   }
 }

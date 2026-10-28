@@ -1,0 +1,1036 @@
+{
+  "generatedAt": "2026-10-28T19:36:13.398Z",
+  "referenceTime": "2026-10-28T00:00:00",
+  "statisticsMonth": "2026-08-01T00:00:00",
+  "source": "Energinet (www.energidataservice.dk), CC BY 4.0: DatahubPricelist, DatahubMeasuringPointStatistics",
+  "summary": {
+    "gridCompanies": 35,
+    "supported": 31,
+    "meteringPointsCovered": "3606677 of 3617821 (99.7%)"
+  },
+  "gridCompanies": [
+    {
+      "gln": "5790000705689",
+      "name": "Radius Elnet A/S",
+      "gridCompanyNumbers": [
+        "791"
+      ],
+      "zone": "DK2",
+      "meteringPoints": 1105546,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "DT_C_01",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.106175,
+        "highDkk": 0.318524,
+        "peakDkk": 0.955573,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-04-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001089030",
+      "name": "N1 A/S - 131",
+      "gridCompanyNumbers": [
+        "131"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 483978,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "CD",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.087854,
+        "highDkk": 0.263563,
+        "peakDkk": 0.79069,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000705184",
+      "name": "Cerius A/S",
+      "gridCompanyNumbers": [
+        "740"
+      ],
+      "zone": "DK2",
+      "meteringPoints": 447736,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "30TR_C_ET",
+          "role": "tariff",
+          "note": "Nettarif C"
+        },
+        {
+          "code": "30RE_C_ET",
+          "role": "discount",
+          "note": "Rabat Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.115336,
+        "highDkk": 0.346008,
+        "peakDkk": 1.038025,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-04-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000611003",
+      "name": "N1 A/S - 344",
+      "gridCompanyNumbers": [
+        "344"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 335345,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "T-C-F-F-TD",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0879,
+        "highDkk": 0.2636,
+        "peakDkk": 0.7907,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000610976",
+      "name": "Vores Elnet A/S",
+      "gridCompanyNumbers": [
+        "543"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 222322,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "TNT1009",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0769,
+        "highDkk": 0.2307,
+        "peakDkk": 0.6922,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000704842",
+      "name": "Konstant Net A/S - 151",
+      "gridCompanyNumbers": [
+        "151"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 191197,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "C_FBTNTR_B",
+          "role": "tariff",
+          "note": "Nettarif C"
+        },
+        {
+          "code": "151-NRA04T",
+          "role": "discount",
+          "note": "Rabat på Nettarif C time -  KONSTANT Net A/S"
+        },
+        {
+          "code": "C_FBTNTR_R",
+          "role": "discount",
+          "note": "Rabat på Nettarif C -  KONSTANT Net A/S"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0605,
+        "highDkk": 0.1816,
+        "peakDkk": 0.5449,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000392261",
+      "name": "TREFOR El-net A/S",
+      "gridCompanyNumbers": [
+        "244"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 154811,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "C",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0429,
+        "highDkk": 0.1288,
+        "peakDkk": 0.3863,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000610099",
+      "name": "Dinel A/S",
+      "gridCompanyNumbers": [
+        "233"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 116311,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "TCL>100_02",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0615,
+        "highDkk": 0.1846,
+        "peakDkk": 0.5539,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000610877",
+      "name": "Nord Energi Net A/S",
+      "gridCompanyNumbers": [
+        "031"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 101059,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "TAC",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0731,
+        "highDkk": 0.2193,
+        "peakDkk": 0.6579,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000683345",
+      "name": "Konstant Net A/S - 245",
+      "gridCompanyNumbers": [
+        "245"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 65367,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "C_FBTNTR_B",
+          "role": "tariff",
+          "note": "Nettarif C"
+        },
+        {
+          "code": "245-NRA04T",
+          "role": "discount",
+          "note": "Rabat på Nettarif C time -  KONSTANT Net A/S"
+        },
+        {
+          "code": "C_FBTNTR_R",
+          "role": "discount",
+          "note": "Rabat på Nettarif C -  KONSTANT Net A/S"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0605,
+        "highDkk": 0.1816,
+        "peakDkk": 0.5449,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000681327",
+      "name": "RAH Net A/S",
+      "gridCompanyNumbers": [
+        "348"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 56972,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "RAH-C",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.065,
+        "highDkk": 0.195,
+        "peakDkk": 0.5851,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-03-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000681358",
+      "name": "Netselskabet Elværk A/S",
+      "gridCompanyNumbers": [
+        "331"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 44864,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "5NCFF",
+          "role": "tariff",
+          "note": "Nettarif C"
+        },
+        {
+          "code": "5RCFF",
+          "role": "discount",
+          "note": "Rabat Nettarif C"
+        },
+        {
+          "code": "5RCFP",
+          "role": "discount",
+          "note": "Rabat Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.104,
+        "highDkk": 0.3119,
+        "peakDkk": 0.9358,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000392551",
+      "name": "FLOW Elnet A/S",
+      "gridCompanyNumbers": [
+        "533"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 33812,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "FE1 NT-01",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.1982,
+        "highDkk": 0.1982,
+        "peakDkk": 0.5947,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2026-12-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000395620",
+      "name": "NOE Net A/S",
+      "gridCompanyNumbers": [
+        "347"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 31292,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "30030",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0563,
+        "highDkk": 0.169,
+        "peakDkk": 0.507,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000706686",
+      "name": "TREFOR El-net Øst A/S",
+      "gridCompanyNumbers": [
+        "911"
+      ],
+      "zone": "DK2",
+      "meteringPoints": 29205,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "46",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0947,
+        "highDkk": 0.284,
+        "peakDkk": 0.852,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2026-12-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001089375",
+      "name": "Zeanet A/S",
+      "gridCompanyNumbers": [
+        "860"
+      ],
+      "zone": "DK2",
+      "meteringPoints": 27865,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "43110",
+          "role": "tariff",
+          "note": "Nettarif C time"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0719,
+        "highDkk": 0.2156,
+        "peakDkk": 0.6468,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001100520",
+      "name": "Elnet Midt A/S",
+      "gridCompanyNumbers": [
+        "154"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 23629,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "T3001",
+          "role": "tariff",
+          "note": "Nettarif C"
+        },
+        {
+          "code": "R3001",
+          "role": "discount",
+          "note": "Rabat Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0845,
+        "highDkk": 0.2535,
+        "peakDkk": 0.7604,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001095277",
+      "name": "Elinord A/S",
+      "gridCompanyNumbers": [
+        "051"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 22770,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "43300",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "flat",
+        "priceDkk": 0.1864,
+        "validFrom": "2026-02-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001090111",
+      "name": "L-Net A/S",
+      "gridCompanyNumbers": [
+        "351"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 20315,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "3000",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0471,
+        "highDkk": 0.1414,
+        "peakDkk": 0.4241,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000836239",
+      "name": "Elektrus A/S",
+      "gridCompanyNumbers": [
+        "757"
+      ],
+      "zone": "DK2",
+      "meteringPoints": 19796,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "6000091",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0649,
+        "highDkk": 0.1655,
+        "peakDkk": 0.5841,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2026-11-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000836727",
+      "name": "Ravdex A/S",
+      "gridCompanyNumbers": [
+        "531"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 17824,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "NT-C",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0873,
+        "highDkk": 0.2619,
+        "peakDkk": 0.7858,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001088217",
+      "name": "Veksel A/S",
+      "gridCompanyNumbers": [
+        "532"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 12551,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "NT-01",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0922,
+        "highDkk": 0.2765,
+        "peakDkk": 0.8294,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000682102",
+      "name": "Ikast El Net A/S",
+      "gridCompanyNumbers": [
+        "342"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 9653,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "IEV-NT-01",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "flat",
+        "priceDkk": 0.2283,
+        "validFrom": "2026-05-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001089023",
+      "name": "Midtfyns Elforsyning  A.m.b.A",
+      "gridCompanyNumbers": [
+        "584"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 7729,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "TNT15000",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0553,
+        "highDkk": 0.166,
+        "peakDkk": 0.4979,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001088309",
+      "name": "Forsyning Elnet A/S",
+      "gridCompanyNumbers": [
+        "357"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 6384,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "STR-NT-03",
+          "role": "tariff",
+          "note": "Nettarif C"
+        },
+        {
+          "code": "STR-NT-02",
+          "role": "tariff",
+          "note": "Regional nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "flat",
+        "priceDkk": 0.3107,
+        "validFrom": "2026-01-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000681105",
+      "name": "Grindsted Elnet A/S",
+      "gridCompanyNumbers": [
+        "341"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 5169,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "GEV-NT-01",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "flat",
+        "priceDkk": 0.4724,
+        "validFrom": "2026-02-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001095239",
+      "name": "Kimbrer Elnet A/S",
+      "gridCompanyNumbers": [
+        "084"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 4636,
+      "support": "unsupported",
+      "supportNote": "Household tariff is 0.00 DKK/kWh; the real price is likely published under another code.",
+      "components": [],
+      "evidence": {
+        "shape": "flat",
+        "priceDkk": 0,
+        "validFrom": "2026-09-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001090166",
+      "name": "Hammel Elforsyning Net A/S",
+      "gridCompanyNumbers": [
+        "141"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 4119,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "C-Tarif",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0678,
+        "highDkk": 0.2033,
+        "peakDkk": 0.61,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001095376",
+      "name": "Hjerting Transformatorforening",
+      "gridCompanyNumbers": [
+        "371"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 3155,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "C-Tarif",
+          "role": "tariff",
+          "note": "C-Kunde Nettarif"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.1092,
+        "highDkk": 0.2621,
+        "peakDkk": 0.5635,
+        "validFrom": "2026-04-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001103460",
+      "name": "Læsø Elnet A/S",
+      "gridCompanyNumbers": [
+        "085"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 2686,
+      "support": "unsupported",
+      "supportNote": "Læsø Elnet also publishes \"Nettarif - overliggende net\" (0.01 DKK/kWh); unconfirmed whether households pay it.",
+      "components": [],
+      "evidence": {
+        "shape": "flat",
+        "priceDkk": 0.3588,
+        "validFrom": "2025-01-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001095444",
+      "name": "Sunds Net A.m.b.a",
+      "gridCompanyNumbers": [
+        "396"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 2566,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "SEF-NT-05",
+          "role": "tariff",
+          "note": "Nettarif C"
+        },
+        {
+          "code": "SEF-NT-05R",
+          "role": "discount",
+          "note": "Rabat Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0923,
+        "highDkk": 0.2768,
+        "peakDkk": 0.8302,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000706419",
+      "name": "Tarm Elværk Net A/S",
+      "gridCompanyNumbers": [
+        "384"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 2464,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "TEV-NT-01T",
+          "role": "tariff",
+          "note": "Nettarif C"
+        },
+        {
+          "code": "TEV-NT-01R",
+          "role": "discount",
+          "note": "Rabat Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0665,
+        "highDkk": 0.1995,
+        "peakDkk": 0.5986,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-04-01T00:00:00"
+      }
+    },
+    {
+      "gln": "5790001095451",
+      "name": "Aal El-Net A M B A",
+      "gridCompanyNumbers": [
+        "370"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 1955,
+      "support": "unsupported",
+      "supportNote": "Household tariff is neither Tarifmodel 3.0 nor a flat price.",
+      "components": [],
+      "evidence": {
+        "shape": "other",
+        "validFrom": "2026-10-26T00:00:00",
+        "validTo": "2026-10-31T00:00:00"
+      }
+    },
+    {
+      "gln": "5790000610839",
+      "name": "Hurup Elværk Net A/S",
+      "gridCompanyNumbers": [
+        "381"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 1867,
+      "support": "unsupported",
+      "supportNote": "No household tariff (\"Nettarif C\") valid now.",
+      "components": [],
+      "evidence": null
+    },
+    {
+      "gln": "5790002502699",
+      "name": "N1 A/S - 016",
+      "gridCompanyNumbers": [
+        "016"
+      ],
+      "zone": "DK1",
+      "meteringPoints": 871,
+      "support": "supported",
+      "supportNote": null,
+      "components": [
+        {
+          "code": "C-Tarif",
+          "role": "tariff",
+          "note": "Nettarif C"
+        }
+      ],
+      "evidence": {
+        "shape": "tarifmodel3",
+        "lowDkk": 0.0879,
+        "highDkk": 0.2636,
+        "peakDkk": 0.7907,
+        "validFrom": "2026-10-01T00:00:00",
+        "validTo": "2027-01-01T00:00:00"
+      }
+    }
+  ],
+  "ignoredOwners": [
+    {
+      "gln": "5790000432752",
+      "name": null,
+      "reason": "no matching grid company in DataHub statistics"
+    },
+    {
+      "gln": "5790000610822",
+      "name": null,
+      "reason": "no matching grid company in DataHub statistics"
+    },
+    {
+      "gln": "5790000681075",
+      "name": null,
+      "reason": "no matching grid company in DataHub statistics"
+    },
+    {
+      "gln": "5790001088231",
+      "name": null,
+      "reason": "no matching grid company in DataHub statistics"
+    },
+    {
+      "gln": "5790001088460",
+      "name": null,
+      "reason": "no matching grid company in DataHub statistics"
+    },
+    {
+      "gln": "5799994000107",
+      "name": "Sanity",
+      "reason": "no matching grid company in DataHub statistics"
+    }
+  ],
+  "ignoredStatistics": [
+    {
+      "name": "Energinet - 007AC",
+      "numbers": [
+        "007"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "SØ nettab DK2",
+      "numbers": [
+        "960"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "Nettab KONTEK",
+      "numbers": [
+        "962"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "Energinet - 003AC",
+      "numbers": [
+        "003"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "SØ Nettab DK1",
+      "numbers": [
+        "950"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "Nettab Storebælt DK1",
+      "numbers": [
+        "951"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "Nettab Skagerak",
+      "numbers": [
+        "952"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "Nettab KontiSkan",
+      "numbers": [
+        "953"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "Nettab Cobra",
+      "numbers": [
+        "954"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    },
+    {
+      "name": "Flensborg",
+      "numbers": [
+        "990"
+      ],
+      "reason": "no tariffs published (TSO, grid-loss or border metering point)"
+    }
+  ]
+}

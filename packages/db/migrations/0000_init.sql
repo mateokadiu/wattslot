@@ -48,8 +48,12 @@ CREATE TABLE `grid_companies` (
 	`gln` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`zone` text NOT NULL,
+	`metering_points` integer,
+	`support` text NOT NULL,
+	`support_note` text,
 	`degraded_at_ms` integer,
-	FOREIGN KEY (`zone`) REFERENCES `price_zones`(`code`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`zone`) REFERENCES `price_zones`(`code`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "grid_companies_support" CHECK("grid_companies"."support" in ('supported', 'unsupported'))
 );
 --> statement-breakpoint
 CREATE TABLE `ingest_state` (
@@ -173,8 +177,10 @@ CREATE TABLE `tariff_mappings` (
 	`gln` text NOT NULL,
 	`customer_type` text NOT NULL,
 	`charge_code` text NOT NULL,
-	PRIMARY KEY(`gln`, `customer_type`),
-	FOREIGN KEY (`gln`) REFERENCES `grid_companies`(`gln`) ON UPDATE no action ON DELETE no action
+	`role` text NOT NULL,
+	PRIMARY KEY(`gln`, `customer_type`, `charge_code`),
+	FOREIGN KEY (`gln`) REFERENCES `grid_companies`(`gln`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "tariff_mappings_role" CHECK("tariff_mappings"."role" in ('tariff', 'discount'))
 );
 --> statement-breakpoint
 CREATE TABLE `vat_rates` (

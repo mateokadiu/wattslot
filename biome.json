@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/node_modules", "!**/dist", "!fixtures", "!packages/db/migrations"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!fixtures",
+      "!packages/db/migrations",
+      "!packages/db/seed"
+    ]
   },
   "assist": {
     "actions": {

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0bab6a8b-ffe1-45e9-af51-01d389c66275",
+  "id": "7f5f2052-04df-4faf-a264-e14682b00416",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "charges": {
@@ -325,6 +325,27 @@
           "notNull": true,
           "autoincrement": false
         },
+        "metering_points": {
+          "name": "metering_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "support": {
+          "name": "support",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "support_note": {
+          "name": "support_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "degraded_at_ms": {
           "name": "degraded_at_ms",
           "type": "integer",
@@ -351,7 +372,12 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "grid_companies_support": {
+          "name": "grid_companies_support",
+          "value": "\"grid_companies\".\"support\" in ('supported', 'unsupported')"
+        }
+      }
     },
     "ingest_state": {
       "name": "ingest_state",
@@ -1148,6 +1174,13 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -1167,16 +1200,22 @@
         }
       },
       "compositePrimaryKeys": {
-        "tariff_mappings_gln_customer_type_pk": {
+        "tariff_mappings_gln_customer_type_charge_code_pk": {
           "columns": [
             "gln",
-            "customer_type"
+            "customer_type",
+            "charge_code"
           ],
-          "name": "tariff_mappings_gln_customer_type_pk"
+          "name": "tariff_mappings_gln_customer_type_charge_code_pk"
         }
       },
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "tariff_mappings_role": {
+          "name": "tariff_mappings_role",
+          "value": "\"tariff_mappings\".\"role\" in ('tariff', 'discount')"
+        }
+      }
     },
     "vat_rates": {
       "name": "vat_rates",
