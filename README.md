@@ -12,6 +12,7 @@ The price you pay isn't the spot price. In Denmark it's spot + your grid company
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`@wattslot/eds-client`](./packages/eds-client) | Typed client for [Energi Data Service](https://www.energidataservice.dk): day-ahead prices, CO₂ emissions and forecasts, DataHub tariffs. Zod-validated, rate-limit aware. |
 | [`@wattslot/pricing`](./packages/pricing)       | Pure functions: all-in price per 15-minute slot with a per-component breakdown, integer money maths, DST-correct local time. Tested in Node and inside `workerd`.          |
+| [`@wattslot/planner`](./packages/planner)       | Pure functions: cheapest contiguous window and cheapest individual slots, property-tested against brute force.                                                             |
 | [`@wattslot/db`](./packages/db)                 | D1 (SQLite) schema with Drizzle, migrations, and household tariffs for 35 Danish grid companies (31 supported, 99.7% of metering points).                                  |
 | [`@wattslot/api`](./apps/api)                   | Cloudflare Worker: Hono REST API with OpenAPI at `/openapi.json`. AGPL-3.0.                                                                                                |
 
@@ -43,6 +44,18 @@ pnpm --filter @wattslot/api db:migrate:local
 pnpm --filter @wattslot/api dev   # http://localhost:8787/v1/grid-companies?zone=DK2
 curl 'http://localhost:8787/__scheduled?cron=*/5+*+*+*+*'   # run the ingestion cron now
 ```
+
+## API
+
+| Endpoint                                                    | What it returns                                                                                                                                                                      |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /v1/prices?zone=DK2&gln=5790000705689&date=2026-10-29` | All-in price per 15-minute slot with the breakdown (spot, grid tariff, Energinet, tax, VAT). Spot-only — with a `note` saying why — for zones or grid companies without tariff data. |
+| `GET /v1/cheapest?zone=DK2&gln=…&hours=2`                   | The cheapest 2-hour window (or `contiguous=false` for loads that can pause), compared with starting now.                                                                             |
+| `GET /v1/co2?zone=DK2`                                      | Forecast and measured grid CO₂ intensity per 15 minutes.                                                                                                                             |
+| `GET /v1/zones`, `/v1/grid-companies?zone=DK2`              | Reference data: 6 zones, 35 Danish grid companies (31 supported).                                                                                                                    |
+| `GET /v1/status`                                            | When each dataset was last ingested.                                                                                                                                                 |
+
+Full schema: `/openapi.json`. Every `/v1` response carries `X-Data-Source: Energinet (www.energidataservice.dk), CC BY 4.0`.
 
 Tests run against recorded API responses in [`fixtures/eds`](./fixtures/eds), including both daylight-saving days (92 and 100 slots) and a negative-price day. The pricing tests also run inside `workerd` (Cloudflare's runtime) through Miniflare.
 
