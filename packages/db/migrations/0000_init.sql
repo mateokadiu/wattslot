@@ -10,8 +10,8 @@ CREATE TABLE `charges` (
 	`ingested_at_ms` integer DEFAULT (cast(unixepoch('subsec') * 1000 as integer)) NOT NULL,
 	PRIMARY KEY(`owner_gln`, `charge_code`, `valid_from`),
 	CONSTRAINT "charges_24_hours" CHECK(json_array_length("charges"."hourly_micro") = 24),
-	CONSTRAINT "charges_valid_from_format" CHECK("valid_from" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]'),
-	CONSTRAINT "charges_valid_to_format" CHECK("valid_to" is null or "valid_to" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]'),
+	CONSTRAINT "charges_valid_from_format" CHECK("valid_from" = strftime('%Y-%m-%dT%H:%M:%S', "valid_from")),
+	CONSTRAINT "charges_valid_to_format" CHECK("charges"."valid_to" is null or "valid_to" = strftime('%Y-%m-%dT%H:%M:%S', "valid_to")),
 	CONSTRAINT "charges_valid_range" CHECK("charges"."valid_to" is null or "charges"."valid_to" > "charges"."valid_from")
 );
 --> statement-breakpoint
@@ -191,5 +191,5 @@ CREATE TABLE `vat_rates` (
 	PRIMARY KEY(`zone`, `valid_from`),
 	FOREIGN KEY (`zone`) REFERENCES `price_zones`(`code`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "vat_rates_range" CHECK("vat_rates"."basis_points" between 0 and 10000),
-	CONSTRAINT "vat_rates_date_format" CHECK("valid_from" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]')
+	CONSTRAINT "vat_rates_date_format" CHECK("valid_from" = date("valid_from"))
 );

@@ -1,6 +1,6 @@
 {
-  "id": "ea6ae707-8b26-4775-9e4c-6d00223dd406",
-  "prevId": "7f5f2052-04df-4faf-a264-e14682b00416",
+  "id": "c57ca7d8-7270-49be-95bd-c092ea4171c5",
+  "prevId": "3cb2c8fe-a3c4-4c59-9479-4f054c84244c",
   "version": "6",
   "dialect": "sqlite",
   "tables": {
@@ -93,11 +93,11 @@
         },
         "charges_valid_from_format": {
           "name": "charges_valid_from_format",
-          "value": "\"valid_from\" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]'"
+          "value": "\"valid_from\" = strftime('%Y-%m-%dT%H:%M:%S', \"valid_from\")"
         },
         "charges_valid_to_format": {
           "name": "charges_valid_to_format",
-          "value": "\"valid_to\" is null or \"valid_to\" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]'"
+          "value": "\"charges\".\"valid_to\" is null or \"valid_to\" = strftime('%Y-%m-%dT%H:%M:%S', \"valid_to\")"
         },
         "charges_valid_range": {
           "name": "charges_valid_range",
@@ -1282,7 +1282,7 @@
         },
         "vat_rates_date_format": {
           "name": "vat_rates_date_format",
-          "value": "\"valid_from\" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+          "value": "\"valid_from\" = date(\"valid_from\")"
         }
       }
     }

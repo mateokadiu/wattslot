@@ -25,9 +25,13 @@ const id = () =>
 const nowMs = sql`(cast(unixepoch('subsec') * 1000 as integer))`;
 const createdAt = () => integer('created_at_ms').notNull().default(nowMs);
 const bool = (name: string) => integer(name, { mode: 'boolean' });
-const WALL_CLOCK_GLOB =
-  "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]'";
-const DATE_GLOB = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'";
+/**
+ * Format checks via strftime round-trips: a value is valid only if SQLite re-formats it to the
+ * same string, which also rejects impossible dates. (D1 rejects long GLOB patterns.)
+ */
+const isWallClock = (column: string) =>
+  sql.raw(`"${column}" = strftime('%Y-%m-%dT%H:%M:%S', "${column}")`);
+const isDate = (column: string) => sql.raw(`"${column}" = date("${column}")`);
 
 // Reference data -----------------------------------------------------------------------------
 
@@ -136,11 +140,8 @@ export const charges = sqliteTable(
   (t) => [
     primaryKey({ columns: [t.ownerGln, t.chargeCode, t.validFrom] }),
     check('charges_24_hours', sql`json_array_length(${t.hourlyMicro}) = 24`),
-    check('charges_valid_from_format', sql.raw(`"valid_from" glob ${WALL_CLOCK_GLOB}`)),
-    check(
-      'charges_valid_to_format',
-      sql.raw(`"valid_to" is null or "valid_to" glob ${WALL_CLOCK_GLOB}`),
-    ),
+    check('charges_valid_from_format', isWallClock('valid_from')),
+    check('charges_valid_to_format', sql`${t.validTo} is null or ${isWallClock('valid_to')}`),
     check('charges_valid_range', sql`${t.validTo} is null or ${t.validTo} > ${t.validFrom}`),
   ],
 );
@@ -159,7 +160,7 @@ export const vatRates = sqliteTable(
   (t) => [
     primaryKey({ columns: [t.zone, t.validFrom] }),
     check('vat_rates_range', sql`${t.basisPoints} between 0 and 10000`),
-    check('vat_rates_date_format', sql.raw(`"valid_from" glob ${DATE_GLOB}`)),
+    check('vat_rates_date_format', isDate('valid_from')),
   ],
 );
 
