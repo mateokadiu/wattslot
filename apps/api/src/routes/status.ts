@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { schema } from '@wattslot/db';
-import { sql } from 'drizzle-orm';
+import { isNotNull, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import type { AppEnv } from '../env.js';
 import { TASKS } from '../ingest/schedule.js';
@@ -26,6 +26,9 @@ const statusRoute = createRoute({
               }),
             ),
             latestPriceSlot: z.record(z.string(), z.string()),
+            degradedGridCompanies: z.array(
+              z.object({ gln: z.string(), name: z.string(), since: z.string() }),
+            ),
           }),
         },
       },
@@ -43,6 +46,14 @@ export const statusRoutes = new OpenAPIHono<AppEnv>().openapi(statusRoute, async
     })
     .from(schema.spotPrices)
     .groupBy(schema.spotPrices.zone);
+  const degraded = await db
+    .select({
+      gln: schema.gridCompanies.gln,
+      name: schema.gridCompanies.name,
+      since: schema.gridCompanies.degradedAtMs,
+    })
+    .from(schema.gridCompanies)
+    .where(isNotNull(schema.gridCompanies.degradedAtMs));
   c.header('Cache-Control', 'public, max-age=60');
   return c.json(
     {
@@ -58,6 +69,11 @@ export const statusRoutes = new OpenAPIHono<AppEnv>().openapi(statusRoute, async
       latestPriceSlot: Object.fromEntries(
         latest.map((r) => [r.zone, new Date(r.slot).toISOString()]),
       ),
+      degradedGridCompanies: degraded.map((d) => ({
+        gln: d.gln,
+        name: d.name,
+        since: new Date(d.since ?? 0).toISOString(),
+      })),
     },
     200,
   );

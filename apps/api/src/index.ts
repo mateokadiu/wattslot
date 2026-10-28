@@ -1,5 +1,8 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
+import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
 import { DATA_SOURCE } from './attribution.js';
+import { edgeCache } from './cache.js';
 import type { AppEnv, Env } from './env.js';
 import { runScheduled } from './ingest/run.js';
 import { RequestError } from './prices/service.js';
@@ -11,10 +14,15 @@ const app = new OpenAPIHono<AppEnv>();
 
 app.get('/health', (c) => c.json({ ok: true }));
 
+app.use('*', secureHeaders());
+// Public, read-only data: any site may read it from a browser. No cookies, so no credentials.
+app.use('/v1/*', cors({ origin: '*', allowMethods: ['GET', 'OPTIONS'], maxAge: 86_400 }));
+app.use('/openapi.json', cors({ origin: '*', allowMethods: ['GET'] }));
 app.use('/v1/*', async (c, next) => {
   await next();
   c.header('X-Data-Source', DATA_SOURCE);
 });
+app.use('/v1/*', edgeCache);
 app.route('/v1', referenceRoutes);
 app.route('/v1', statusRoutes);
 app.route('/v1', priceRoutes);

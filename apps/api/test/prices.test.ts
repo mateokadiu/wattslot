@@ -84,6 +84,15 @@ describe('GET /v1/prices', () => {
     expect(germany.complete).toBe(false);
   });
 
+  it('explains why a degraded grid company is not supported', async () => {
+    const { gridCompanies } = await json<{
+      gridCompanies: { gln: string; supported: boolean; note: string | null }[];
+    }>('/v1/grid-companies?zone=DK1');
+    const n1 = gridCompanies.find((g) => g.gln === N1);
+    expect(n1?.supported).toBe(false);
+    expect(n1?.note).toContain('out of date since');
+  });
+
   it('rejects bad requests with clear errors', async () => {
     const wrongZone = await h.get(`/v1/prices?zone=DK1&gln=${RADIUS}`);
     expect(wrongZone.status).toBe(400);

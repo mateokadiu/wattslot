@@ -98,7 +98,11 @@ export const referenceRoutes = new OpenAPIHono<AppEnv>()
           zone: g.zone,
           meteringPoints: g.meteringPoints,
           supported: g.support === 'supported' && g.degradedAtMs === null,
-          note: g.supportNote,
+          note:
+            g.supportNote ??
+            (g.degradedAtMs === null
+              ? null
+              : `Tariff data has been out of date since ${new Date(g.degradedAtMs).toISOString().slice(0, 10)}; prices fall back to spot.`),
         })),
       },
       200,

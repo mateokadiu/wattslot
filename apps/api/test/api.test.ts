@@ -102,6 +102,26 @@ describe('api', () => {
     expect(unsupported.every((g) => (g.note ?? '').length > 10)).toBe(true);
   });
 
+  it('lets any site read the public API from a browser, with security headers', async () => {
+    const response = await get('/v1/zones');
+    expect(response.headers.get('access-control-allow-origin')).toBe('*');
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    const preflight = await mf.dispatchFetch('http://api/v1/zones', {
+      method: 'OPTIONS',
+      headers: { origin: 'https://example.com', 'access-control-request-method': 'GET' },
+    });
+    expect(preflight.status).toBe(204);
+  });
+
+  it('serves repeat requests from the edge cache', async () => {
+    const first = await get('/v1/grid-companies?zone=DK1');
+    expect(first.headers.get('x-cache')).toBe('MISS');
+    await first.arrayBuffer();
+    const second = await get('/v1/grid-companies?zone=DK1');
+    expect(second.headers.get('x-cache')).toBe('HIT');
+    expect(second.headers.get('x-data-source')).toContain('Energinet');
+  });
+
   it('returns JSON for unknown routes', async () => {
     const response = await get('/nope');
     expect(response.status).toBe(404);
