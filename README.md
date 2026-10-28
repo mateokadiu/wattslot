@@ -39,6 +39,7 @@ Requires Node 24 and pnpm 10.
 pnpm install
 pnpm check        # biome + typecheck + tests
 pnpm test         # tests only
+pnpm --filter @wattslot/web e2e   # Playwright end-to-end tests against the real stack (seeded local D1 + wrangler dev)
 pnpm lint:fix     # format and fix with Biome
 pnpm db:generate  # generate a migration after changing packages/db/src/schema.ts
 
