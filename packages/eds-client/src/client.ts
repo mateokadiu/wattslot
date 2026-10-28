@@ -27,6 +27,8 @@ export interface PricelistQuery {
   start?: string;
   ownerGlns?: readonly string[];
   codes?: readonly string[];
+  /** D01 subscription, D02 fee, D03 tariff. */
+  chargeTypes?: readonly string[];
 }
 
 export interface EdsClient {
@@ -112,7 +114,11 @@ export function createEdsClient(options: EdsClientOptions = {}): EdsClient {
       return parseDatahubPricelist(
         await get('DatahubPricelist', {
           start: query.start,
-          filter: filterParam({ GLN_Number: query.ownerGlns, ChargeTypeCode: query.codes }),
+          filter: filterParam({
+            GLN_Number: query.ownerGlns,
+            ChargeTypeCode: query.codes,
+            ChargeType: query.chargeTypes,
+          }),
           sort: 'ValidFrom asc',
           limit: MAX_RECORDS,
         }),

@@ -51,11 +51,13 @@ describe('createEdsClient', () => {
       start: '2025-01-01',
       ownerGlns: ['5790000705689'],
       codes: ['DT_C_01'],
+      chargeTypes: ['D03'],
     });
     expect(charges.length).toBeGreaterThan(0);
     expect(JSON.parse(calls[0]?.searchParams.get('filter') ?? '')).toEqual({
       GLN_Number: ['5790000705689'],
       ChargeTypeCode: ['DT_C_01'],
+      ChargeType: ['D03'],
     });
   });
 
