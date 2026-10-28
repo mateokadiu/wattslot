@@ -1,6 +1,6 @@
 /** The whole chain: recorded EDS data → cron ingestion → D1 → pricing → public API. */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Harness, startWorker } from './harness.js';
+import { type Harness, startWorker } from './harness.ts';
 
 const RADIUS = '5790000705689'; // DK2, the worked example in PLAN.md §2.2
 const N1 = '5790001089030'; // DK1; degraded because the fixture lacks its tariff

@@ -5,7 +5,7 @@ import {
   dueTasks,
   type Task,
   type TaskState,
-} from '../src/ingest/schedule.js';
+} from '../src/ingest/schedule.ts';
 
 /** A UTC instant from Danish local time on 28 Oct 2026 (CET, UTC+1). */
 const at = (hhmm: string) => {

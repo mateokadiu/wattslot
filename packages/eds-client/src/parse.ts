@@ -1,13 +1,13 @@
 import type { z } from 'zod';
-import { EdsSchemaError, EdsTruncatedError } from './errors.js';
+import { EdsSchemaError, EdsTruncatedError } from './errors.ts';
 import {
   co2EmissionRecord,
   type DatahubPriceRecord,
   datahubPriceRecord,
   dayAheadPriceRecord,
   envelope,
-} from './schemas.js';
-import type { Co2Emission, DatahubCharge, DayAheadPrice } from './types.js';
+} from './schemas.ts';
+import type { Co2Emission, DatahubCharge, DayAheadPrice } from './types.ts';
 
 const WALL_CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 

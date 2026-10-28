@@ -2,8 +2,8 @@ import { schema } from '@wattslot/db';
 import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { type DrizzleD1Database, drizzle } from 'drizzle-orm/d1';
-import type { Task, TaskState } from './schedule.js';
-import type { Co2Row, SpotRow, ZoneInfo } from './transform.js';
+import type { Task, TaskState } from './schedule.ts';
+import type { Co2Row, SpotRow, ZoneInfo } from './transform.ts';
 
 export type Db = DrizzleD1Database<typeof schema>;
 

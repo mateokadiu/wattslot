@@ -11,8 +11,8 @@ import {
   periodAt,
   toMicro,
 } from '@wattslot/pricing';
-import type { Env } from '../env.js';
-import { type Clock, clockAt, dayAheadTargetDays, dueTasks, type Task } from './schedule.js';
+import type { Env } from '../env.ts';
+import { type Clock, clockAt, dayAheadTargetDays, dueTasks, type Task } from './schedule.ts';
 import {
   changedSpotRows,
   countSpotSlots,
@@ -29,8 +29,8 @@ import {
   syncCharges,
   upsertCo2,
   upsertSpotPrices,
-} from './store.js';
-import { changedCo2, toCo2Slots, toSpotRows } from './transform.js';
+} from './store.ts';
+import { changedCo2, toCo2Slots, toSpotRows } from './transform.ts';
 
 type Eds = ReturnType<typeof createEdsClient>;
 

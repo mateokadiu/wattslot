@@ -1,5 +1,5 @@
 import { OpenAPIHono, z } from '@hono/zod-openapi';
-import type { AppEnv } from './env.js';
+import type { AppEnv } from './env.ts';
 
 export const ErrorBody = z
   .object({ error: z.string(), message: z.string().optional() })

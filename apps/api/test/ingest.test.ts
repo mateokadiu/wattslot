@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { fixtureText } from './fixtures.js';
-import { type Harness, local, startWorker } from './harness.js';
+import { fixtureText } from './fixtures.ts';
+import { type Harness, local, startWorker } from './harness.ts';
 
 let h: Harness;
 

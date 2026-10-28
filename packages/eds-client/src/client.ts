@@ -1,6 +1,6 @@
-import { EdsHttpError, EdsRateLimitError, EdsSchemaError } from './errors.js';
-import { parseCo2Emissions, parseDatahubPricelist, parseDayAheadPrices } from './parse.js';
-import type { Co2Emission, DatahubCharge, DayAheadPrice } from './types.js';
+import { EdsHttpError, EdsRateLimitError, EdsSchemaError } from './errors.ts';
+import { parseCo2Emissions, parseDatahubPricelist, parseDayAheadPrices } from './parse.ts';
+import type { Co2Emission, DatahubCharge, DayAheadPrice } from './types.ts';
 
 export interface EdsClientOptions {
   baseUrl?: string;

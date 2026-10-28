@@ -2,8 +2,8 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { schema } from '@wattslot/db';
 import { isNotNull, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import type { AppEnv } from '../env.js';
-import { TASKS } from '../ingest/schedule.js';
+import type { AppEnv } from '../env.ts';
+import { TASKS } from '../ingest/schedule.ts';
 
 const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
 

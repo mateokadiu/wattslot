@@ -6,7 +6,7 @@ import {
   roundHalfAwayFromZero,
   toMicro,
   toOre,
-} from '../src/index.js';
+} from '../src/index.ts';
 
 describe('money', () => {
   it('converts DKK/kWh and DKK/MWh to integer micro-DKK/kWh', () => {

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import type { D1Database } from '@cloudflare/workers-types';
 import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
-import { fixtureText } from './fixtures.js';
+import { fixtureText } from './fixtures.ts';
 
 const MIGRATIONS = new URL('../../../packages/db/migrations/', import.meta.url);
 

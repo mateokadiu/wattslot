@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyTariffShape, TARIFMODEL_3_BANDS, tarifModel3Shape } from '../src/index.js';
+import { classifyTariffShape, TARIFMODEL_3_BANDS, tarifModel3Shape } from '../src/index.ts';
 
 const fromBands = (low: number, high: number, peak: number) =>
   TARIFMODEL_3_BANDS.map((band) => ({ low, high, peak })[band]);

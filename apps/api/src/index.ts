@@ -1,14 +1,14 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
-import { DATA_SOURCE } from './attribution.js';
-import { edgeCache } from './cache.js';
-import type { AppEnv, Env } from './env.js';
-import { runScheduled } from './ingest/run.js';
-import { RequestError } from './prices/service.js';
-import { priceRoutes } from './routes/prices.js';
-import { referenceRoutes } from './routes/reference.js';
-import { statusRoutes } from './routes/status.js';
+import { DATA_SOURCE } from './attribution.ts';
+import { edgeCache } from './cache.ts';
+import type { AppEnv, Env } from './env.ts';
+import { runScheduled } from './ingest/run.ts';
+import { RequestError } from './prices/service.ts';
+import { priceRoutes } from './routes/prices.ts';
+import { referenceRoutes } from './routes/reference.ts';
+import { statusRoutes } from './routes/status.ts';
 
 const app = new OpenAPIHono<AppEnv>();
 

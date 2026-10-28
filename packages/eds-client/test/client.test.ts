@@ -4,8 +4,8 @@ import {
   EdsHttpError,
   EdsRateLimitError,
   retryAfterSeconds,
-} from '../src/index.js';
-import { fixtureText } from './fixtures.js';
+} from '../src/index.ts';
+import { fixtureText } from './fixtures.ts';
 
 function fakeFetch(status: number, body: string, headers: Record<string, string> = {}) {
   const calls: URL[] = [];

@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono';
-import type { AppEnv } from './env.js';
+import type { AppEnv } from './env.ts';
 
 /**
  * Serves repeat GETs from Cloudflare's edge cache for as long as the response's own

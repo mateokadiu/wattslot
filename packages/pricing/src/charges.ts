@@ -1,5 +1,5 @@
-import { type Micro, toMicro } from './money.js';
-import type { LocalTime } from './time.js';
+import { type Micro, toMicro } from './money.ts';
+import type { LocalTime } from './time.ts';
 
 /**
  * One validity period of one per-kWh charge (grid tariff, Energinet tariff, electricity tax).

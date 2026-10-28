@@ -9,7 +9,7 @@ import {
   priceSlot,
   priceSlotSpotOnly,
   SLOT_MS,
-} from '../src/index.js';
+} from '../src/index.ts';
 
 const hourly = fc.array(fc.integer({ min: 0, max: 3_000_000 }), { minLength: 24, maxLength: 24 });
 

@@ -7,7 +7,7 @@ import {
   OverlappingPeriodsError,
   periodAt,
   sumCharges,
-} from '../src/index.js';
+} from '../src/index.ts';
 
 const at = (wallClock: string, hour: number) => ({
   date: wallClock.slice(0, 10),

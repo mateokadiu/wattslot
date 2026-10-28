@@ -5,8 +5,8 @@ import {
   parseCo2Emissions,
   parseDatahubPricelist,
   parseDayAheadPrices,
-} from '../src/index.js';
-import { fixture } from './fixtures.js';
+} from '../src/index.ts';
+import { fixture } from './fixtures.ts';
 
 describe('parseDayAheadPrices', () => {
   it('parses a recorded day into 15-minute UTC slots per area', () => {

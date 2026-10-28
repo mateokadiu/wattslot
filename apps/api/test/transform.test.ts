@@ -1,7 +1,7 @@
 import { parseCo2Emissions } from '@wattslot/eds-client';
 import { describe, expect, it } from 'vitest';
-import { changedCo2, toCo2Slots, toSpotRows } from '../src/ingest/transform.js';
-import { fixture } from './fixtures.js';
+import { changedCo2, toCo2Slots, toSpotRows } from '../src/ingest/transform.ts';
+import { fixture } from './fixtures.ts';
 
 const zones = [
   { code: 'DK2', currency: 'DKK', timeZone: 'Europe/Copenhagen' },

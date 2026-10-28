@@ -12,7 +12,7 @@ import {
   priceSlot,
   slotsForLocalDate,
   toOre,
-} from '../../src/index.js';
+} from '../../src/index.ts';
 
 interface Body {
   date: string;

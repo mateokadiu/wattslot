@@ -1,6 +1,6 @@
-import { type Charge, sumCharges } from './charges.js';
-import { applyRate, type Micro } from './money.js';
-import { localTime } from './time.js';
+import { type Charge, sumCharges } from './charges.ts';
+import { applyRate, type Micro } from './money.ts';
+import { localTime } from './time.ts';
 
 export interface PricingContext {
   timeZone: string;

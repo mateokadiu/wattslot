@@ -7,7 +7,7 @@ import {
   localTime,
   SLOT_MS,
   slotsForLocalDate,
-} from '../src/index.js';
+} from '../src/index.ts';
 
 const tz = DK_TIME_ZONE;
 

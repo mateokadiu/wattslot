@@ -22,7 +22,7 @@ import {
   priceSlot,
   slotsForLocalDate,
   toOre,
-} from '../src/index.js';
+} from '../src/index.ts';
 
 const RADIUS_GLN = '5790000705689';
 const RADIUS_HOUSEHOLD_TARIFF = 'DT_C_01';

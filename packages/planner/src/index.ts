@@ -4,4 +4,4 @@ export {
   type ScoredSlot,
   type Selection,
   SLOT_MS,
-} from './select.js';
+} from './select.ts';

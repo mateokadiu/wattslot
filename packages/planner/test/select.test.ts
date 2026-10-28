@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { cheapestSlots, cheapestWindow, type ScoredSlot, SLOT_MS } from '../src/index.js';
+import { cheapestSlots, cheapestWindow, type ScoredSlot, SLOT_MS } from '../src/index.ts';
 
 const T0 = Date.UTC(2026, 9, 28);
 const series = (scores: number[], gapsAfter: number[] = []): ScoredSlot[] => {

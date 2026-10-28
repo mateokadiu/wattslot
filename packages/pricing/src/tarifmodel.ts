@@ -1,4 +1,4 @@
-import type { Micro } from './money.js';
+import type { Micro } from './money.ts';
 
 /** Danish grid-tariff bands (Tarifmodel 3.0): low 00–06, high 06–17 and 21–24, peak 17–21. */
 export type TariffBand = 'low' | 'high' | 'peak';

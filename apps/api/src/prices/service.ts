@@ -14,7 +14,7 @@ import {
   priceSlotSpotOnly,
 } from '@wattslot/pricing';
 import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
-import type { Db } from '../ingest/store.js';
+import type { Db } from '../ingest/store.ts';
 
 export class RequestError extends Error {
   constructor(

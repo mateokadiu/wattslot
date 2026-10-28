@@ -2,7 +2,7 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { schema } from '@wattslot/db';
 import { asc, desc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import type { AppEnv } from '../env.js';
+import type { AppEnv } from '../env.ts';
 
 const Zone = z
   .object({

@@ -9,14 +9,14 @@ export {
   periodAt,
   sumCharges,
   type Validity,
-} from './charges.js';
+} from './charges.ts';
 export {
   DK_TIME_ZONE,
   DK_VAT_BASIS_POINTS,
   ELECTRICITY_TAX_CODE,
   ENERGINET_CONSUMER_TARIFF_CODES,
   ENERGINET_GLN,
-} from './dk.js';
+} from './dk.ts';
 export {
   applyRate,
   fromMicro,
@@ -26,8 +26,8 @@ export {
   roundHalfAwayFromZero,
   toMicro,
   toOre,
-} from './money.js';
-export { type PriceBreakdown, type PricingContext, priceSlot, priceSlotSpotOnly } from './price.js';
+} from './money.ts';
+export { type PriceBreakdown, type PricingContext, priceSlot, priceSlotSpotOnly } from './price.ts';
 export {
   classifyTariffShape,
   TARIFMODEL_3_BANDS,
@@ -35,7 +35,7 @@ export {
   type TariffShape,
   type TariffShapeKind,
   tarifModel3Shape,
-} from './tarifmodel.js';
+} from './tarifmodel.ts';
 export {
   addDays,
   type LocalTime,
@@ -44,4 +44,4 @@ export {
   SLOT_MINUTES,
   SLOT_MS,
   slotsForLocalDate,
-} from './time.js';
+} from './time.ts';
