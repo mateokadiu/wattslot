@@ -77,6 +77,28 @@ describe('sumCharges', () => {
     expect(() => sumCharges([a, b], at('2026-07-01T00:00:00', 0))).toThrow(OverlappingChargeError);
   });
 
+  it('counts an ended discount as zero but keeps it while it runs', () => {
+    const discount = chargeFromDkk(
+      {
+        ownerGln: 'G',
+        code: 'RABAT',
+        validFrom: '2026-10-01T00:00:00',
+        validTo: '2026-11-01T00:00:00',
+        hourlyDkkPerKwh: Array(24).fill(-0.0111),
+      },
+      { optional: true },
+    );
+    expect(sumCharges([tou, discount], at('2026-10-15T03:00:00', 3))).toBe(100_000 - 11_100);
+    expect(sumCharges([tou, discount], at('2026-11-15T03:00:00', 3))).toBe(100_000);
+  });
+
+  it('still throws when a required charge has a gap next to an optional one', () => {
+    const discount = flat('RABAT', -0.01, '2026-01-01T00:00:00', null);
+    expect(() =>
+      sumCharges([{ ...discount, optional: true }, tou], at('2027-05-01T12:00:00', 12)),
+    ).toThrow(MissingChargeError);
+  });
+
   it('is zero when there are no charges at all', () => {
     expect(sumCharges([], at('2026-07-01T00:00:00', 0))).toBe(0);
   });

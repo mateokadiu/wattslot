@@ -25,7 +25,9 @@ export default {
     const { date, dayAhead, pricelist } = (await request.json()) as Body;
     const charges = parseDatahubPricelist(pricelist);
     const pick = (gln: string, codes: readonly string[]) =>
-      charges.filter((c) => c.ownerGln === gln && codes.includes(c.code)).map(chargeFromDkk);
+      charges
+        .filter((c) => c.ownerGln === gln && codes.includes(c.code))
+        .map((c) => chargeFromDkk(c));
     const ctx = {
       timeZone: DK_TIME_ZONE,
       gridTariffs: pick('5790000705689', ['DT_C_01']),

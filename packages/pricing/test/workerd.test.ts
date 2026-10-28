@@ -26,7 +26,7 @@ beforeAll(async () => {
   mf = new Miniflare({
     modules: true,
     script: bundle.outputFiles[0]?.text ?? '',
-    compatibilityDate: '2026-06-01',
+    compatibilityDate: '2026-07-01',
   });
 }, 60_000);
 

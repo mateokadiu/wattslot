@@ -14,6 +14,11 @@ export interface Charge {
   validTo: string | null;
   /** Price for each local hour 00–23. */
   hourly: readonly Micro[];
+  /**
+   * Optional charges (time-limited discounts) count as zero when no period covers the slot.
+   * Required charges throw instead, because a gap means our data is stale.
+   */
+  optional?: boolean;
 }
 
 export interface ChargeInDkk {
@@ -24,9 +29,13 @@ export interface ChargeInDkk {
   hourlyDkkPerKwh: readonly number[];
 }
 
+export interface ChargeOptions {
+  optional?: boolean;
+}
+
 const WALL_CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 
-export function chargeFromDkk(c: ChargeInDkk): Charge {
+export function chargeFromDkk(c: ChargeInDkk, options: ChargeOptions = {}): Charge {
   if (c.hourlyDkkPerKwh.length !== 24) {
     throw new RangeError(`${c.code}: expected 24 hourly prices, got ${c.hourlyDkkPerKwh.length}`);
   }
@@ -42,6 +51,7 @@ export function chargeFromDkk(c: ChargeInDkk): Charge {
     validFrom: c.validFrom,
     validTo: c.validTo,
     hourly: c.hourlyDkkPerKwh.map(toMicro),
+    ...(options.optional ? { optional: true } : {}),
   };
 }
 
@@ -71,8 +81,9 @@ const isValidAt = (c: Charge, wallClock: string) =>
   c.validFrom <= wallClock && (c.validTo === null || wallClock < c.validTo);
 
 /**
- * Sum of every distinct charge (owner + code) at a local time. Each one must have exactly one
- * valid row: a gap means our data is stale, which must never silently price as zero.
+ * Sum of every distinct charge (owner + code) at a local time. A required charge must have
+ * exactly one valid row — a gap means our data is stale, which must never silently price as
+ * zero. An optional charge (a discount that has ended) contributes zero instead.
  */
 export function sumCharges(charges: readonly Charge[], at: LocalTime): Micro {
   const groups = new Map<string, Charge[]>();
@@ -87,7 +98,10 @@ export function sumCharges(charges: readonly Charge[], at: LocalTime): Micro {
   for (const group of groups.values()) {
     const valid = group.filter((c) => isValidAt(c, at.wallClock));
     const first = group[0] as Charge;
-    if (valid.length === 0) throw new MissingChargeError(first.ownerGln, first.code, at.wallClock);
+    if (valid.length === 0) {
+      if (group.every((c) => c.optional)) continue;
+      throw new MissingChargeError(first.ownerGln, first.code, at.wallClock);
+    }
     if (valid.length > 1) {
       throw new OverlappingChargeError(first.ownerGln, first.code, at.wallClock);
     }

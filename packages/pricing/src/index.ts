@@ -1,6 +1,7 @@
 export {
   type Charge,
   type ChargeInDkk,
+  type ChargeOptions,
   chargeFromDkk,
   MissingChargeError,
   OverlappingChargeError,
@@ -24,6 +25,14 @@ export {
   toOre,
 } from './money.js';
 export { type PriceBreakdown, type PricingContext, priceSlot, priceSlotSpotOnly } from './price.js';
+export {
+  classifyTariffShape,
+  TARIFMODEL_3_BANDS,
+  type TariffBand,
+  type TariffShape,
+  type TariffShapeKind,
+  tarifModel3Shape,
+} from './tarifmodel.js';
 export {
   addDays,
   type LocalTime,
