@@ -2,6 +2,8 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { DATA_SOURCE } from './attribution.js';
 import type { AppEnv, Env } from './env.js';
 import { runScheduled } from './ingest/run.js';
+import { RequestError } from './prices/service.js';
+import { priceRoutes } from './routes/prices.js';
 import { referenceRoutes } from './routes/reference.js';
 import { statusRoutes } from './routes/status.js';
 
@@ -15,6 +17,7 @@ app.use('/v1/*', async (c, next) => {
 });
 app.route('/v1', referenceRoutes);
 app.route('/v1', statusRoutes);
+app.route('/v1', priceRoutes);
 
 app.doc31('/openapi.json', {
   openapi: '3.1.0',
@@ -28,6 +31,12 @@ app.doc31('/openapi.json', {
 
 app.notFound((c) => c.json({ error: 'not_found' }, 404));
 app.onError((error, c) => {
+  if (error instanceof RequestError) {
+    return c.json(
+      { error: error.status === 404 ? 'not_found' : 'invalid_request', message: error.message },
+      error.status,
+    );
+  }
   console.error(error);
   return c.json({ error: 'internal_error' }, 500);
 });
