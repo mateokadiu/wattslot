@@ -55,7 +55,7 @@ curl 'http://localhost:8787/__scheduled?cron=*/5+*+*+*+*'   # run the ingestion 
 | `GET /v1/zones`, `/v1/grid-companies?zone=DK2`              | Reference data: 6 zones, 35 Danish grid companies (31 supported).                                                                                                                    |
 | `GET /v1/status`                                            | When each dataset was last ingested.                                                                                                                                                 |
 
-Full schema: `/openapi.json`. Every `/v1` response carries `X-Data-Source: Energinet (www.energidataservice.dk), CC BY 4.0`.
+Full schema: `/openapi.json`. Every `/v1` response carries `X-Data-Source: Energinet (www.energidataservice.dk), CC BY 4.0`, is readable from any website (CORS), and is cached at Cloudflare's edge.
 
 Tests run against recorded API responses in [`fixtures/eds`](./fixtures/eds), including both daylight-saving days (92 and 100 slots) and a negative-price day. The pricing tests also run inside `workerd` (Cloudflare's runtime) through Miniflare.
 

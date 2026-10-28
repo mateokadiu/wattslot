@@ -244,8 +244,10 @@ Everything runs on Cloudflare's free plan.
 - `ValidFrom`/`ValidTo` are Danish **local** wall-clock times. They're stored as `timestamp` (no zone) and compared against the slot's local wall clock, never converted.
 - A negative spot price is not a negative bill: on 2026-04-05 DK2 had 36 negative slots (min −0.046 DKK/kWh) but every all-in price stayed positive because tariffs + tax add ~0.23 DKK/kWh.
 - **D1 rejects long GLOB/LIKE patterns** ("pattern too complex"), which plain SQLite accepts. Format checks therefore use `strftime` round-trips (`valid_from = strftime('%Y-%m-%dT%H:%M:%S', valid_from)`), which also reject impossible dates. Found by running migrations in `workerd`, not `sqlite3`.
-- **Tariff periods overlap by design.** N1 publishes a yearly row for its household tariff plus seasonal rows inside it; a later-starting period overrides earlier ones from its start date. `periodAt()` in `pricing` applies that rule everywhere (pricing, the nightly mapping check, discovery). Found by querying live data: N1 had silently fallen back to spot prices.
+- **A grid company can reuse one code across charge types.** N1's `CD` is both its tariff (D03, ~0.09 DKK/kWh) and its monthly subscription (D01, ~27 DKK/month). Ingestion therefore requests D03 only and also filters in code, and `charge_type` is part of the `charges` key. Genuine tariff periods never overlap (0 of 913 D03 series), so pricing treats an overlap as corrupt data and falls back to spot prices. _Correction: an earlier version misread this as "overlapping periods by design" and let the latest-starting period win, which hid the bug; the strict rule caught it._
+- **Withdrawn tariff periods are deleted.** The nightly sync fetches every period with `ValidFrom ≥` its start date (verified: that's exactly what EDS `start` filters on) and deletes stored periods in that range the response no longer has.
 - Worker **compatibility date is `2026-07-01`** everywhere (wrangler config and tests): Miniflare 4 (stable) supports up to July 2026; Miniflare 5 is a beta with a new API.
+- **Free-plan limits that shape the code** (verified 2026-10-28): 10 ms CPU per invocation, cron included, and not enforced by `wrangler dev` or Miniflare; 50 subrequests per invocation, where each D1 call counts but a `batch()` counts once. Building 72 insert statements through the query builder alone measured **~7 ms**, so every bulk write is now a single statement taking all rows as one JSON parameter (`json_each`), which brought a day-ahead run to **~0.8 ms**. A cron run makes ~17 D1/fetch calls.
 - **Which code is the household tariff isn't published anywhere.** `packages/db/scripts/discover-grid-companies.ts` derives it with explicit rules (see `packages/db/README.md`). Result on 2026-10-28: 35 grid companies, **31 supported, covering 99.7% of metering points**. Findings: Konstant runs a real household discount (`C_FBTNTR_R`, up to −0.0996 DKK/kWh); Elinord, Grindsted and Ikast use flat tariffs; Forsyning Elnet adds a regional tariff; Kimbrer (0.00 tariff), Læsø (unclear extra charge), Aal (non-standard weekly tariff) and Hurup (no "Nettarif C") are unsupported and fall back to spot-only. Grid companies and zones come from `DatahubMeasuringPointStatistics`, joined to tariffs by name (statistics sometimes add a grid-area suffix).
 - Besides DK1/DK2, `DayAheadPrices` covers DE, NO2, SE3 and SE4 — those become spot-only zones in EUR.
 - No price forecast dataset exists on EDS. Anything beyond the published day-ahead horizon is the project's own estimate and must be labelled as such.
@@ -416,10 +418,13 @@ Feed tokens are **capability URLs**: 256-bit random, stored hashed, read-only, r
 ```
 GET  /v1/zones
 GET  /v1/grid-companies?zone=DK2
-GET  /v1/prices?zone=DK2&gln=5790000705689&from=…&to=…        → per-slot breakdown + all-in
-GET  /v1/co2?zone=DK2&from=…&to=…&kind=forecast|actual
-GET  /v1/cheapest?zone=DK2&gln=…&hours=2&within=24h&contiguous=true
+GET  /v1/prices?zone=DK2&gln=5790000705689&date=2026-10-29&days=1&markup=0
+GET  /v1/co2?zone=DK2&date=2026-10-29&days=1
+GET  /v1/cheapest?zone=DK2&gln=…&hours=2&from=<ISO>&to=<ISO>&contiguous=true
+GET  /v1/status
 ```
+
+All public GETs send CORS headers (any origin, no credentials), security headers, the Energinet attribution header, and `Cache-Control`; repeat requests are served from Cloudflare's edge cache on the custom domain (the Cache API is a no-op on `*.workers.dev`). Rate limiting: a Cloudflare WAF rate-limiting rule on the custom domain, set up in step 5.
 
 ### 10.2 Authenticated
 
