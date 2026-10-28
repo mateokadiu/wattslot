@@ -4,6 +4,8 @@ export {
   type ChargeOptions,
   chargeFromDkk,
   MissingChargeError,
+  OverlappingChargeError,
+  OverlappingPeriodsError,
   periodAt,
   sumCharges,
   type Validity,

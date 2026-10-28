@@ -138,7 +138,10 @@ export const charges = sqliteTable(
     ingestedAtMs: integer('ingested_at_ms').notNull().default(nowMs),
   },
   (t) => [
-    primaryKey({ columns: [t.ownerGln, t.chargeCode, t.validFrom] }),
+    // Charge type is part of the key: some grid companies reuse one code for a tariff (D03)
+    // and a subscription (D01), which would otherwise overwrite each other.
+    primaryKey({ columns: [t.ownerGln, t.chargeType, t.chargeCode, t.validFrom] }),
+    check('charges_type', sql`${t.chargeType} in ('D01', 'D02', 'D03')`),
     check('charges_24_hours', sql`json_array_length(${t.hourlyMicro}) = 24`),
     check('charges_valid_from_format', isWallClock('valid_from')),
     check('charges_valid_to_format', sql`${t.validTo} is null or ${isWallClock('valid_to')}`),

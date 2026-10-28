@@ -7,6 +7,7 @@ import {
   localTime,
   type Micro,
   MissingChargeError,
+  OverlappingChargeError,
   type PriceBreakdown,
   type PricingContext,
   priceSlot,
@@ -108,6 +109,7 @@ async function pricingContext(
       .where(
         and(
           eq(c.ownerGln, gln),
+          eq(c.chargeType, 'D03'),
           inArray(
             c.chargeCode,
             mappings.map((m) => m.chargeCode),
@@ -120,6 +122,7 @@ async function pricingContext(
       .where(
         and(
           eq(c.ownerGln, ENERGINET_GLN),
+          eq(c.chargeType, 'D03'),
           inArray(c.chargeCode, [...ENERGINET_CONSUMER_TARIFF_CODES, ELECTRICITY_TAX_CODE]),
         ),
       ),
@@ -187,7 +190,7 @@ export async function priceRange(
       slots: spots.map((s) => priceSlot(s.startMs, s.price, resolved.context)),
     };
   } catch (error) {
-    if (error instanceof MissingChargeError) {
+    if (error instanceof MissingChargeError || error instanceof OverlappingChargeError) {
       console.error(
         JSON.stringify({ event: 'pricing_gap', gln: params.gln, message: error.message }),
       );

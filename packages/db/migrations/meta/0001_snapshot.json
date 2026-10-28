@@ -1,6 +1,6 @@
 {
-  "id": "c57ca7d8-7270-49be-95bd-c092ea4171c5",
-  "prevId": "3cb2c8fe-a3c4-4c59-9479-4f054c84244c",
+  "id": "3eeceb66-b873-4ed1-86b1-00cb7302e151",
+  "prevId": "b2ddd5cb-e334-4ff0-b80f-cebc85cc1731",
   "version": "6",
   "dialect": "sqlite",
   "tables": {
@@ -76,17 +76,22 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "charges_owner_gln_charge_code_valid_from_pk": {
+        "charges_owner_gln_charge_type_charge_code_valid_from_pk": {
           "columns": [
             "owner_gln",
+            "charge_type",
             "charge_code",
             "valid_from"
           ],
-          "name": "charges_owner_gln_charge_code_valid_from_pk"
+          "name": "charges_owner_gln_charge_type_charge_code_valid_from_pk"
         }
       },
       "uniqueConstraints": {},
       "checkConstraints": {
+        "charges_type": {
+          "name": "charges_type",
+          "value": "\"charges\".\"charge_type\" in ('D01', 'D02', 'D03')"
+        },
         "charges_24_hours": {
           "name": "charges_24_hours",
           "value": "json_array_length(\"charges\".\"hourly_micro\") = 24"

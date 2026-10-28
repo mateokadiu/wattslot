@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { fixtureText } from './fixtures.js';
 import { type Harness, local, startWorker } from './harness.js';
 
 let h: Harness;
@@ -58,6 +59,86 @@ describe('ingestion cron', () => {
     expect(await count(issued)).toBe(before);
   });
 
+  it('deletes a tariff period the grid company has withdrawn', async () => {
+    const withdrawn = '2027-04-01T00:00:00'; // Radius DT_C_01 summer 2027 period
+    const recorded = JSON.parse(fixtureText('datahub-pricelist-radius-energinet.json')) as {
+      total: number;
+      records: { ChargeTypeCode: string; ValidFrom: string }[];
+    };
+    const records = recorded.records.filter(
+      (r) => !(r.ChargeTypeCode === 'DT_C_01' && r.ValidFrom === withdrawn),
+    );
+    h.overrides.set(
+      'DatahubPricelist',
+      JSON.stringify({ ...recorded, total: records.length, records }),
+    );
+    await h.tick('02:00'); // the nightly tariff sync
+    h.overrides.clear();
+    expect(await count('select count(*) n from charges')).toBe(12);
+    const gone = await h.db
+      .prepare('select count(*) n from charges where charge_code = ? and valid_from = ?')
+      .bind('DT_C_01', withdrawn)
+      .first<{ n: number }>();
+    expect(gone?.n).toBe(0);
+  });
+
+  it('never lets a subscription that shares a tariff code into the tariffs', async () => {
+    // N1 uses the code CD for both its tariff (D03) and its monthly subscription (D01). Inject
+    // the same situation for Radius: a D01 row with DT_C_01's code and start date.
+    const recorded = JSON.parse(fixtureText('datahub-pricelist-radius-energinet.json')) as {
+      total: number;
+      records: Record<string, unknown>[];
+    };
+    const tariff = recorded.records.find(
+      (r) => r.ChargeTypeCode === 'DT_C_01' && r.ValidFrom === '2026-10-01T00:00:00',
+    );
+    const subscription = {
+      ...tariff,
+      ChargeType: 'D01',
+      Note: 'Net abo C forbrug',
+      ValidTo: '2027-01-01T00:00:00',
+      Price1: 26.686367,
+      ...Object.fromEntries(Array.from({ length: 23 }, (_, i) => [`Price${i + 2}`, null])),
+    };
+    const records = [...recorded.records, subscription];
+    h.overrides.set(
+      'DatahubPricelist',
+      JSON.stringify({ ...recorded, total: records.length, records }),
+    );
+    h.urls.length = 0;
+    await h.tick('02:00');
+    h.overrides.clear();
+
+    const request = h.urls.find((u) => u.pathname.endsWith('/DatahubPricelist'));
+    expect(JSON.parse(request?.searchParams.get('filter') ?? '{}').ChargeType).toEqual(['D03']);
+    expect(await count("select count(*) n from charges where charge_type <> 'D03'")).toBe(0);
+
+    const prices = (await (
+      await h.get(`/v1/prices?zone=DK2&gln=5790000705689&date=2026-10-28`)
+    ).json()) as {
+      mode: string;
+      slots: { start: string; total: number }[];
+    };
+    expect(prices.mode).toBe('full');
+    const evening = prices.slots.find((x) => x.start === '2026-10-28T17:00:00.000Z');
+    expect(Math.round((evening?.total ?? 0) * 100)).toBe(435);
+  });
+
+  it('re-fetches a missing price and writes only that row', async () => {
+    const slot = Date.UTC(2026, 9, 28, 10); // 11:00 local, DK2
+    await h.db
+      .prepare('delete from spot_prices where zone = ? and slot_start_ms = ?')
+      .bind('DK2', slot)
+      .run();
+    await h.tick('03:00'); // half-hourly catch-up: today is incomplete again
+    expect(await count('select count(*) n from spot_prices')).toBe(192);
+    const rewritten = await h.db
+      .prepare('select zone, slot_start_ms from spot_prices where ingested_at_ms = ?')
+      .bind(local('03:00').getTime())
+      .all<{ zone: string; slot_start_ms: number }>();
+    expect(rewritten.results).toEqual([{ zone: 'DK2', slot_start_ms: slot }]);
+  });
+
   it('backs off after HTTP 429 instead of retrying every tick', async () => {
     h.rateLimited.add('DayAheadPrices');
     h.calls.length = 0;
@@ -79,7 +160,9 @@ describe('ingestion cron', () => {
     const status = (await (await h.get('/v1/status')).json()) as {
       tasks: { task: string; lastSuccessAt: string | null; lastError: string | null }[];
       latestPriceSlot: Record<string, string>;
+      degradedGridCompanies: { name: string }[];
     };
+    expect(status.degradedGridCompanies).toHaveLength(30);
     expect(status.latestPriceSlot.DK2).toBe('2026-10-28T22:45:00.000Z');
     const dayAhead = status.tasks.find((t) => t.task === 'day_ahead');
     expect(dayAhead?.lastSuccessAt).not.toBeNull();

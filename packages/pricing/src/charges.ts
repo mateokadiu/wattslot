@@ -71,16 +71,36 @@ export interface Validity {
   validTo: string | null;
 }
 
+export class OverlappingPeriodsError extends Error {
+  constructor(readonly at: string) {
+    super(`more than one period valid at ${at}`);
+    this.name = 'OverlappingPeriodsError';
+  }
+}
+
+export class OverlappingChargeError extends Error {
+  constructor(
+    readonly ownerGln: string,
+    readonly code: string,
+    readonly at: string,
+  ) {
+    super(`more than one ${ownerGln}/${code} charge valid at ${at}`);
+    this.name = 'OverlappingChargeError';
+  }
+}
+
 /**
- * The period in force at a local wall-clock time. DataHub records a price change as a new
- * period that overrides earlier ones from its start, so periods can overlap (a yearly row plus
- * seasonal rows inside it): the one that started most recently wins.
+ * The period of one charge in force at a local wall-clock time, or null if none is. DataHub
+ * never publishes overlapping periods for one tariff (checked across all 913 grid tariff
+ * series), so an overlap means our data is corrupt — e.g. a subscription that shares the
+ * tariff's code — and throws rather than silently picking one.
  */
 export function periodAt<T extends Validity>(periods: readonly T[], wallClock: string): T | null {
   let current: T | null = null;
   for (const p of periods) {
     if (p.validFrom <= wallClock && (p.validTo === null || wallClock < p.validTo)) {
-      if (current === null || p.validFrom > current.validFrom) current = p;
+      if (current !== null) throw new OverlappingPeriodsError(wallClock);
+      current = p;
     }
   }
   return current;
@@ -89,7 +109,8 @@ export function periodAt<T extends Validity>(periods: readonly T[], wallClock: s
 /**
  * Sum of every distinct charge (owner + code) at a local time, using the period in force for
  * each. A required charge with no period in force means our data is stale, which must never
- * silently price as zero. An optional charge (a discount that has ended) contributes zero.
+ * silently price as zero; overlapping periods mean it's corrupt. An optional charge (a
+ * discount that has ended) contributes zero.
  */
 export function sumCharges(charges: readonly Charge[], at: LocalTime): Micro {
   const groups = new Map<string, Charge[]>();
@@ -102,9 +123,17 @@ export function sumCharges(charges: readonly Charge[], at: LocalTime): Micro {
 
   let total = 0;
   for (const group of groups.values()) {
-    const current = periodAt(group, at.wallClock);
+    const first = group[0] as Charge;
+    let current: Charge | null;
+    try {
+      current = periodAt(group, at.wallClock);
+    } catch (error) {
+      if (error instanceof OverlappingPeriodsError) {
+        throw new OverlappingChargeError(first.ownerGln, first.code, at.wallClock);
+      }
+      throw error;
+    }
     if (current === null) {
-      const first = group[0] as Charge;
       if (group.every((c) => c.optional)) continue;
       throw new MissingChargeError(first.ownerGln, first.code, at.wallClock);
     }

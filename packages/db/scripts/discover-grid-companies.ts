@@ -100,12 +100,17 @@ function describeShape(shape: TariffShapeKind) {
 }
 
 function classify(rows: DatahubCharge[]) {
-  // Per code, only the period in force counts (later-starting periods override earlier ones).
+  // Per code, the period in force (DataHub tariff periods never overlap; periodAt throws if they do).
   const byCode = new Map<string, DatahubCharge[]>();
   for (const r of rows) byCode.set(r.code, [...(byCode.get(r.code) ?? []), r]);
-  const valid = [...byCode.values()]
-    .map((periods) => periodAt(periods, at))
-    .filter((r): r is DatahubCharge => r !== null);
+  let valid: DatahubCharge[];
+  try {
+    valid = [...byCode.values()]
+      .map((periods) => periodAt(periods, at))
+      .filter((r): r is DatahubCharge => r !== null);
+  } catch {
+    return { support: 'unsupported' as const, note: 'Overlapping tariff periods in DataHub.' };
+  }
   let main = valid.filter((r) => MAIN_NOTES.includes(normaliseNote(r.note)));
   for (const note of MAIN_NOTES) {
     const exact = main.filter((r) => normaliseNote(r.note) === note);

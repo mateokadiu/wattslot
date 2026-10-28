@@ -38,7 +38,11 @@ export interface Harness {
   db: D1Database;
   /** Dataset names requested from Energi Data Service, in order. */
   calls: string[];
+  /** Full request URLs, to check query filters. */
+  urls: URL[];
   rateLimited: Set<string>;
+  /** Replaces a dataset's recorded response, e.g. to simulate a withdrawn tariff period. */
+  overrides: Map<string, string>;
   /** Fires the cron at a Danish local time on 28 Oct 2026 (CET). */
   tick(hhmm: string): Promise<void>;
   get(path: string): Promise<Response>;
@@ -64,17 +68,25 @@ export async function startWorker(): Promise<Harness> {
     logLevel: 'silent',
   });
   const calls: string[] = [];
+  const urls: URL[] = [];
   const rateLimited = new Set<string>();
+  const overrides = new Map<string, string>();
   const mf = new Miniflare({
     modules: true,
     script: bundle.outputFiles[0]?.text ?? '',
     compatibilityDate: '2026-07-01',
     d1Databases: { DB: `wattslot-${Math.random().toString(36).slice(2)}` },
     outboundService: (request: Request) => {
-      const dataset = new URL(request.url).pathname.split('/').pop() ?? '';
+      const url = new URL(request.url);
+      const dataset = url.pathname.split('/').pop() ?? '';
       calls.push(dataset);
+      urls.push(url);
       if (rateLimited.has(dataset)) {
         return new Response(fixtureText('error-429.json'), { status: 429 });
+      }
+      const override = overrides.get(dataset);
+      if (override !== undefined) {
+        return new Response(override, { headers: { 'content-type': 'application/json' } });
       }
       const name = FIXTURES[dataset];
       return name
@@ -88,7 +100,9 @@ export async function startWorker(): Promise<Harness> {
     mf,
     db,
     calls,
+    urls,
     rateLimited,
+    overrides,
     async tick(hhmm) {
       const worker = await mf.getWorker();
       await worker.scheduled({ scheduledTime: local(hhmm), cron: '*/5 * * * *' });

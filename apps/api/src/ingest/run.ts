@@ -14,17 +14,19 @@ import {
 import type { Env } from '../env.js';
 import { type Clock, clockAt, dayAheadTargetDays, dueTasks, type Task } from './schedule.js';
 import {
+  changedSpotRows,
   countSpotSlots,
   type Db,
   loadCharges,
   loadCo2,
+  loadSpotPrices,
   loadSupportedMappings,
   loadTaskStates,
   loadZones,
   openDb,
   recordTask,
   setDegraded,
-  upsertCharges,
+  syncCharges,
   upsertCo2,
   upsertSpotPrices,
 } from './store.js';
@@ -34,6 +36,8 @@ type Eds = ReturnType<typeof createEdsClient>;
 
 interface Context {
   db: Db;
+  /** Raw D1 for bulk writes; see store.ts. */
+  d1: D1Database;
   eds: Eds;
   clock: Clock;
 }
@@ -41,10 +45,12 @@ interface Context {
 type Runner = (ctx: Context) => Promise<Record<string, unknown>>;
 
 const DANISH_ZONES = ['DK1', 'DK2'];
+/** DataHub charge type for per-kWh tariffs (D01 = subscription, D02 = fee). */
+const TARIFF = 'D03';
 const RETRY_AFTER_FAILURE_MS = 10 * 60_000;
 
-/** Fetches day-ahead prices only for days that are still incomplete. */
-const dayAhead: Runner = async ({ db, eds, clock }) => {
+/** Fetches day-ahead prices only for days that are still incomplete; writes only what changed. */
+const dayAhead: Runner = async ({ db, d1, eds, clock }) => {
   const zones = await loadZones(db);
   const days = dayAheadTargetDays(clock);
   const incomplete: string[] = [];
@@ -58,14 +64,21 @@ const dayAhead: Runner = async ({ db, eds, clock }) => {
   const [first] = incomplete;
   const last = incomplete.at(-1);
   if (!first || !last) return { skipped: 'complete' };
-  const prices = await eds.dayAheadPrices({ start: first, end: addDays(last, 1) });
+  const end = addDays(last, 1);
+  const prices = await eds.dayAheadPrices({ start: first, end });
   const rows = toSpotRows(prices, zones);
-  await upsertSpotPrices(db, rows, clock.nowMs);
-  return { days: incomplete, rows: rows.length };
+  const stored = await loadSpotPrices(
+    db,
+    localMidnight(first, DK_TIME_ZONE),
+    localMidnight(end, DK_TIME_ZONE),
+  );
+  const changed = changedSpotRows(rows, stored);
+  await upsertSpotPrices(d1, changed, clock.nowMs);
+  return { days: incomplete, rows: rows.length, written: changed.length };
 };
 
 function co2Runner(kind: 'forecast' | 'actual'): Runner {
-  return async ({ db, eds, clock }) => {
+  return async ({ db, d1, eds, clock }) => {
     // Forecasts: the past hour to the end of tomorrow. Actuals: the last two hours, which can
     // start on the previous day just after midnight.
     const fromMs = clock.nowMs - (kind === 'forecast' ? 1 : 2) * 3_600_000;
@@ -80,7 +93,7 @@ function co2Runner(kind: 'forecast' | 'actual'): Runner {
     const maxMs = Math.max(...slots.map((s) => s.slotStartMs));
     const stored = await loadCo2(db, kind, minMs, maxMs + 1);
     const changed = changedCo2(slots, stored);
-    await upsertCo2(db, kind, changed, clock.nowMs);
+    await upsertCo2(d1, kind, changed, clock.nowMs);
     return { slots: slots.length, written: changed.length };
   };
 }
@@ -89,7 +102,7 @@ function co2Runner(kind: 'forecast' | 'actual'): Runner {
  * Refreshes the mapped household tariffs, Energinet's tariffs and electricity tax, then checks
  * every supported grid company still has a recognisable tariff covering today and tomorrow.
  */
-const tariffs: Runner = async ({ db, eds, clock }) => {
+const tariffs: Runner = async ({ db, d1, eds, clock }) => {
   const mappings = await loadSupportedMappings(db);
   const glns = [...new Set(mappings.map((m) => m.gln))];
   const codes = [
@@ -99,13 +112,15 @@ const tariffs: Runner = async ({ db, eds, clock }) => {
       ELECTRICITY_TAX_CODE,
     ]),
   ];
-  const fetched = await eds.datahubPricelist({
-    start: addDays(clock.today, -730),
-    ownerGlns: [...glns, ENERGINET_GLN],
-    codes,
-  });
-  await upsertCharges(
-    db,
+  const since = addDays(clock.today, -730);
+  const owners = [...glns, ENERGINET_GLN];
+  // Tariffs only: a grid company can reuse a tariff's code for its subscription (N1's CD).
+  const fetched = (
+    await eds.datahubPricelist({ start: since, ownerGlns: owners, codes, chargeTypes: [TARIFF] })
+  ).filter((c) => c.chargeType === TARIFF);
+  await syncCharges(
+    d1,
+    { sinceWallClock: `${since}T00:00:00`, owners, codes },
     fetched.map((c) => ({
       ownerGln: c.ownerGln,
       chargeCode: c.code,
@@ -124,7 +139,12 @@ const tariffs: Runner = async ({ db, eds, clock }) => {
   const covered = (gln: string, code: string, requireShape: boolean) => {
     const periods = stored.filter((c) => c.ownerGln === gln && c.chargeCode === code);
     return checkpoints.every((at) => {
-      const row = periodAt(periods, at);
+      let row: (typeof periods)[number] | null;
+      try {
+        row = periodAt(periods, at);
+      } catch {
+        return false; // overlapping periods: corrupt data, degrade rather than guess
+      }
       return (
         row !== null && (!requireShape || classifyTariffShape(row.hourlyMicro).kind !== 'other')
       );
@@ -169,6 +189,7 @@ export async function runScheduled(
   fetchImpl: typeof fetch = fetch,
 ): Promise<Record<string, unknown>> {
   const db = openDb(env.DB);
+  const d1 = env.DB;
   const clock = clockAt(scheduledTimeMs);
   const eds = createEdsClient({
     fetch: fetchImpl,
@@ -178,7 +199,7 @@ export async function runScheduled(
   const report: Record<string, unknown> = {};
   for (const task of due) {
     try {
-      report[task] = await RUNNERS[task]({ db, eds, clock });
+      report[task] = await RUNNERS[task]({ db, d1, eds, clock });
       await recordTask(db, task, clock.nowMs, { ok: true });
     } catch (error) {
       const nextAttemptAtMs =
