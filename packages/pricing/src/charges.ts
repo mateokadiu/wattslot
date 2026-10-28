@@ -1,0 +1,97 @@
+import { type Micro, toMicro } from './money.js';
+import type { LocalTime } from './time.js';
+
+/**
+ * One validity period of one per-kWh charge (grid tariff, Energinet tariff, electricity tax).
+ * Validity is local wall-clock time, exactly as DataHub publishes it.
+ */
+export interface Charge {
+  ownerGln: string;
+  code: string;
+  /** Inclusive, `YYYY-MM-DDTHH:mm:ss` local time. */
+  validFrom: string;
+  /** Exclusive; null = open-ended. */
+  validTo: string | null;
+  /** Price for each local hour 00–23. */
+  hourly: readonly Micro[];
+}
+
+export interface ChargeInDkk {
+  ownerGln: string;
+  code: string;
+  validFrom: string;
+  validTo: string | null;
+  hourlyDkkPerKwh: readonly number[];
+}
+
+const WALL_CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+
+export function chargeFromDkk(c: ChargeInDkk): Charge {
+  if (c.hourlyDkkPerKwh.length !== 24) {
+    throw new RangeError(`${c.code}: expected 24 hourly prices, got ${c.hourlyDkkPerKwh.length}`);
+  }
+  for (const v of [c.validFrom, c.validTo]) {
+    if (v !== null && !WALL_CLOCK.test(v)) throw new RangeError(`${c.code}: bad validity ${v}`);
+  }
+  if (c.validTo !== null && c.validTo <= c.validFrom) {
+    throw new RangeError(`${c.code}: validTo ${c.validTo} is not after validFrom ${c.validFrom}`);
+  }
+  return {
+    ownerGln: c.ownerGln,
+    code: c.code,
+    validFrom: c.validFrom,
+    validTo: c.validTo,
+    hourly: c.hourlyDkkPerKwh.map(toMicro),
+  };
+}
+
+export class MissingChargeError extends Error {
+  constructor(
+    readonly ownerGln: string,
+    readonly code: string,
+    readonly at: string,
+  ) {
+    super(`no ${ownerGln}/${code} charge valid at ${at}`);
+    this.name = 'MissingChargeError';
+  }
+}
+
+export class OverlappingChargeError extends Error {
+  constructor(
+    readonly ownerGln: string,
+    readonly code: string,
+    readonly at: string,
+  ) {
+    super(`more than one ${ownerGln}/${code} charge valid at ${at}`);
+    this.name = 'OverlappingChargeError';
+  }
+}
+
+const isValidAt = (c: Charge, wallClock: string) =>
+  c.validFrom <= wallClock && (c.validTo === null || wallClock < c.validTo);
+
+/**
+ * Sum of every distinct charge (owner + code) at a local time. Each one must have exactly one
+ * valid row: a gap means our data is stale, which must never silently price as zero.
+ */
+export function sumCharges(charges: readonly Charge[], at: LocalTime): Micro {
+  const groups = new Map<string, Charge[]>();
+  for (const c of charges) {
+    const key = `${c.ownerGln}/${c.code}`;
+    const group = groups.get(key);
+    if (group) group.push(c);
+    else groups.set(key, [c]);
+  }
+
+  let total = 0;
+  for (const group of groups.values()) {
+    const valid = group.filter((c) => isValidAt(c, at.wallClock));
+    const first = group[0] as Charge;
+    if (valid.length === 0) throw new MissingChargeError(first.ownerGln, first.code, at.wallClock);
+    if (valid.length > 1) {
+      throw new OverlappingChargeError(first.ownerGln, first.code, at.wallClock);
+    }
+    total += (valid[0] as Charge).hourly[at.hour] as Micro;
+  }
+  return total;
+}
