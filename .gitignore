@@ -13,3 +13,6 @@ coverage/
 out/
 *.tsbuildinfo
 next-env.d.ts
+.e2e-state/
+test-results/
+playwright-report/
