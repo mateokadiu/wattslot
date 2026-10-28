@@ -1,51 +1,56 @@
+/**
+ * D1 (SQLite) schema. SQLite has no decimal, timestamp or array types, so:
+ * - money is integer micro-units (1e-6 of the currency), matching @wattslot/pricing;
+ * - instants are integer epoch milliseconds (UTC);
+ * - tariff validity is Danish local wall-clock text, exactly as DataHub publishes it;
+ * - energy and power are integer Wh and W.
+ */
 import { sql } from 'drizzle-orm';
 import {
-  boolean,
+  blob,
   check,
-  customType,
-  date,
   index,
   integer,
-  jsonb,
-  numeric,
-  pgTable,
   primaryKey,
+  real,
+  sqliteTable,
   text,
-  timestamp,
   unique,
-  uuid,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/sqlite-core';
 
-const bytea = customType<{ data: Uint8Array }>({ dataType: () => 'bytea' });
-
-/** Per-kWh amounts: 6 decimals = whole micro-units, matching the integer maths in @wattslot/pricing. */
-const perKwh = (name: string) => numeric(name, { precision: 14, scale: 6 });
-const instant = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
-/** Danish local wall-clock time, exactly as DataHub publishes tariff validity. */
-const localWallClock = (name: string) => timestamp(name, { withTimezone: false, mode: 'string' });
+const id = () =>
+  text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID());
+const nowMs = sql`(cast(unixepoch('subsec') * 1000 as integer))`;
+const createdAt = () => integer('created_at_ms').notNull().default(nowMs);
+const bool = (name: string) => integer(name, { mode: 'boolean' });
+const WALL_CLOCK_GLOB =
+  "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]'";
+const DATE_GLOB = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'";
 
 // Reference data -----------------------------------------------------------------------------
 
-export const priceZones = pgTable('price_zones', {
+export const priceZones = sqliteTable('price_zones', {
   code: text('code').primaryKey(),
   currency: text('currency').notNull(),
   timeZone: text('time_zone').notNull(),
   /** True once a tariff provider exists for the zone; otherwise spot-only pricing. */
-  fullPrice: boolean('full_price').notNull().default(false),
+  fullPrice: bool('full_price').notNull().default(false),
 });
 
-export const gridCompanies = pgTable('grid_companies', {
+export const gridCompanies = sqliteTable('grid_companies', {
   gln: text('gln').primaryKey(),
   name: text('name').notNull(),
   zone: text('zone')
     .notNull()
     .references(() => priceZones.code),
   /** Set by the nightly tariff-mapping check when tariff data looks stale or changed. */
-  degradedAt: instant('degraded_at'),
+  degradedAtMs: integer('degraded_at_ms'),
 });
 
 /** Which DataHub charge code is the household tariff for each grid company. */
-export const tariffMappings = pgTable(
+export const tariffMappings = sqliteTable(
   'tariff_mappings',
   {
     gln: text('gln')
@@ -59,144 +64,168 @@ export const tariffMappings = pgTable(
 
 // Market data --------------------------------------------------------------------------------
 
-export const spotPrices = pgTable(
+export const spotPrices = sqliteTable(
   'spot_prices',
   {
     zone: text('zone')
       .notNull()
       .references(() => priceZones.code),
-    slotStart: instant('slot_start').notNull(),
-    pricePerKwh: perKwh('price_per_kwh').notNull(),
-    priceEurPerKwh: perKwh('price_eur_per_kwh').notNull(),
+    slotStartMs: integer('slot_start_ms').notNull(),
+    /** Micro-units of the zone currency per kWh. */
+    priceMicro: integer('price_micro').notNull(),
+    priceEurMicro: integer('price_eur_micro').notNull(),
     source: text('source').notNull(),
-    ingestedAt: instant('ingested_at').notNull().defaultNow(),
+    ingestedAtMs: integer('ingested_at_ms').notNull().default(nowMs),
   },
   (t) => [
-    primaryKey({ columns: [t.zone, t.slotStart] }),
-    check('spot_prices_slot_aligned', sql`extract(epoch from ${t.slotStart})::bigint % 900 = 0`),
+    primaryKey({ columns: [t.zone, t.slotStartMs] }),
+    check('spot_prices_slot_aligned', sql`${t.slotStartMs} % 900000 = 0`),
   ],
 );
 
-export const co2Intensity = pgTable(
+export const co2Intensity = sqliteTable(
   'co2_intensity',
   {
     zone: text('zone')
       .notNull()
       .references(() => priceZones.code),
-    time: instant('time').notNull(),
-    kind: text('kind').notNull(),
-    gPerKwh: numeric('g_per_kwh', { precision: 8, scale: 2 }).notNull(),
-    issuedAt: instant('issued_at').notNull(),
+    timeMs: integer('time_ms').notNull(),
+    kind: text('kind', { enum: ['forecast', 'actual'] }).notNull(),
+    gPerKwh: real('g_per_kwh').notNull(),
+    issuedAtMs: integer('issued_at_ms').notNull(),
   },
   (t) => [
-    primaryKey({ columns: [t.zone, t.time, t.kind] }),
+    primaryKey({ columns: [t.zone, t.timeMs, t.kind] }),
     check('co2_intensity_kind', sql`${t.kind} in ('forecast', 'actual')`),
+    check('co2_intensity_aligned', sql`${t.timeMs} % 300000 = 0`),
   ],
 );
 
 /** DataHub charges: grid tariffs, Energinet tariffs and electricity tax (code EA-001). */
-export const charges = pgTable(
+export const charges = sqliteTable(
   'charges',
   {
     ownerGln: text('owner_gln').notNull(),
     chargeCode: text('charge_code').notNull(),
     chargeType: text('charge_type').notNull(),
-    validFrom: localWallClock('valid_from').notNull(),
-    validTo: localWallClock('valid_to'),
-    /** 24 prices by local hour; flat charges repeat the same value. */
-    hourlyPerKwh: perKwh('hourly_per_kwh').array().notNull(),
-    isTax: boolean('is_tax').notNull().default(false),
+    validFrom: text('valid_from').notNull(),
+    validTo: text('valid_to'),
+    /** 24 micro-unit prices by local hour; flat charges repeat the same value. */
+    hourlyMicro: text('hourly_micro', { mode: 'json' }).$type<number[]>().notNull(),
+    isTax: bool('is_tax').notNull().default(false),
     note: text('note'),
-    ingestedAt: instant('ingested_at').notNull().defaultNow(),
+    ingestedAtMs: integer('ingested_at_ms').notNull().default(nowMs),
   },
   (t) => [
     primaryKey({ columns: [t.ownerGln, t.chargeCode, t.validFrom] }),
-    check('charges_24_hours', sql`array_length(${t.hourlyPerKwh}, 1) = 24`),
+    check('charges_24_hours', sql`json_array_length(${t.hourlyMicro}) = 24`),
+    check('charges_valid_from_format', sql.raw(`"valid_from" glob ${WALL_CLOCK_GLOB}`)),
+    check(
+      'charges_valid_to_format',
+      sql.raw(`"valid_to" is null or "valid_to" glob ${WALL_CLOCK_GLOB}`),
+    ),
     check('charges_valid_range', sql`${t.validTo} is null or ${t.validTo} > ${t.validFrom}`),
   ],
 );
 
 /** VAT isn't published by DataHub, so it lives here as dated rows instead of a constant. */
-export const vatRates = pgTable(
+export const vatRates = sqliteTable(
   'vat_rates',
   {
     zone: text('zone')
       .notNull()
       .references(() => priceZones.code),
-    validFrom: date('valid_from').notNull(),
-    validTo: date('valid_to'),
+    validFrom: text('valid_from').notNull(),
+    validTo: text('valid_to'),
     basisPoints: integer('basis_points').notNull(),
   },
   (t) => [
     primaryKey({ columns: [t.zone, t.validFrom] }),
     check('vat_rates_range', sql`${t.basisPoints} between 0 and 10000`),
+    check('vat_rates_date_format', sql.raw(`"valid_from" glob ${DATE_GLOB}`)),
   ],
 );
 
+/** Per scheduled task: when it last worked and when it may run again after a 429. */
+export const ingestState = sqliteTable('ingest_state', {
+  task: text('task').primaryKey(),
+  lastSuccessAtMs: integer('last_success_at_ms'),
+  nextAttemptAtMs: integer('next_attempt_at_ms'),
+  lastError: text('last_error'),
+  updatedAtMs: integer('updated_at_ms').notNull().default(nowMs),
+});
+
 // Sites --------------------------------------------------------------------------------------
 
-export const sites = pgTable('sites', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull(),
+export const sites = sqliteTable('sites', {
+  id: id(),
+  userId: text('user_id').notNull(),
   name: text('name').notNull(),
   zone: text('zone')
     .notNull()
     .references(() => priceZones.code),
   /** Null → spot-only pricing. Never a street address. */
   gridGln: text('grid_gln').references(() => gridCompanies.gln),
-  supplierMarkupPerKwh: perKwh('supplier_markup_per_kwh').notNull().default('0'),
-  co2PricePerKg: numeric('co2_price_per_kg', { precision: 8, scale: 2 }).notNull().default('1'),
-  /** SHA-256 of the capability token used by the evcc and iCal feeds. */
-  feedTokenHash: bytea('feed_token_hash').notNull().unique(),
-  createdAt: instant('created_at').notNull().defaultNow(),
+  supplierMarkupMicro: integer('supplier_markup_micro').notNull().default(0),
+  /** CO₂ shadow price in micro-units per kg; default 1.0 DKK/kg. */
+  co2PriceMicroPerKg: integer('co2_price_micro_per_kg').notNull().default(1_000_000),
+  /** SHA-256 of the capability token used by the evcc, iCal and Home Assistant feeds. */
+  feedTokenHash: blob('feed_token_hash', { mode: 'buffer' }).notNull().unique(),
+  createdAtMs: createdAt(),
 });
 
 // Jobs & plans -------------------------------------------------------------------------------
 
-export const jobs = pgTable(
+export const jobs = sqliteTable(
   'jobs',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    siteId: uuid('site_id')
+    id: id(),
+    siteId: text('site_id')
       .notNull()
       .references(() => sites.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
-    energyKwh: numeric('energy_kwh', { precision: 8, scale: 3 }).notNull(),
-    maxPowerKw: numeric('max_power_kw', { precision: 6, scale: 2 }).notNull(),
-    earliest: instant('earliest').notNull(),
-    deadline: instant('deadline').notNull(),
-    contiguous: boolean('contiguous').notNull().default(false),
+    kind: text('kind', { enum: ['ev', 'appliance', 'heat_boost', 'custom'] }).notNull(),
+    energyWh: integer('energy_wh').notNull(),
+    maxPowerW: integer('max_power_w').notNull(),
+    earliestMs: integer('earliest_ms').notNull(),
+    deadlineMs: integer('deadline_ms').notNull(),
+    contiguous: bool('contiguous').notNull().default(false),
     minRunSlots: integer('min_run_slots').notNull().default(1),
-    objective: text('objective').notNull().default('balanced'),
-    status: text('status').notNull(),
+    objective: text('objective', { enum: ['cheapest', 'balanced', 'greenest'] })
+      .notNull()
+      .default('balanced'),
+    status: text('status', {
+      enum: ['planned', 'running', 'done', 'cancelled', 'failed'],
+    }).notNull(),
     workflowId: text('workflow_id').notNull().unique(),
-    createdAt: instant('created_at').notNull().defaultNow(),
+    createdAtMs: createdAt(),
   },
   (t) => [
     index('jobs_site_status').on(t.siteId, t.status),
     check('jobs_kind', sql`${t.kind} in ('ev', 'appliance', 'heat_boost', 'custom')`),
     check('jobs_objective', sql`${t.objective} in ('cheapest', 'balanced', 'greenest')`),
     check('jobs_status', sql`${t.status} in ('planned', 'running', 'done', 'cancelled', 'failed')`),
-    check('jobs_window', sql`${t.deadline} > ${t.earliest}`),
-    check('jobs_positive', sql`${t.energyKwh} > 0 and ${t.maxPowerKw} > 0`),
+    check('jobs_window', sql`${t.deadlineMs} > ${t.earliestMs}`),
+    check('jobs_positive', sql`${t.energyWh} > 0 and ${t.maxPowerW} > 0`),
   ],
 );
 
-export const plans = pgTable(
+export const plans = sqliteTable(
   'plans',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    jobId: uuid('job_id')
+    id: id(),
+    jobId: text('job_id')
       .notNull()
       .references(() => jobs.id, { onDelete: 'cascade' }),
     version: integer('version').notNull(),
-    reason: text('reason').notNull(),
-    provisional: boolean('provisional').notNull(),
-    cost: perKwh('cost').notNull(),
-    co2Grams: numeric('co2_grams', { precision: 14, scale: 2 }).notNull(),
-    baselineNowCost: perKwh('baseline_now_cost').notNull(),
-    baselineMidnightCost: perKwh('baseline_midnight_cost').notNull(),
-    createdAt: instant('created_at').notNull().defaultNow(),
+    reason: text('reason', {
+      enum: ['created', 'prices_published', 'co2_updated', 'user_edit'],
+    }).notNull(),
+    provisional: bool('provisional').notNull(),
+    costMicro: integer('cost_micro').notNull(),
+    co2Grams: real('co2_grams').notNull(),
+    baselineNowMicro: integer('baseline_now_micro').notNull(),
+    baselineMidnightMicro: integer('baseline_midnight_micro').notNull(),
+    createdAtMs: createdAt(),
   },
   (t) => [
     unique('plans_job_version').on(t.jobId, t.version),
@@ -207,44 +236,47 @@ export const plans = pgTable(
   ],
 );
 
-export const planSlots = pgTable(
+export const planSlots = sqliteTable(
   'plan_slots',
   {
-    planId: uuid('plan_id')
+    planId: text('plan_id')
       .notNull()
       .references(() => plans.id, { onDelete: 'cascade' }),
-    slotStart: instant('slot_start').notNull(),
-    energyKwh: numeric('energy_kwh', { precision: 8, scale: 4 }).notNull(),
-    pricePerKwh: perKwh('price_per_kwh').notNull(),
-    co2GPerKwh: numeric('co2_g_per_kwh', { precision: 8, scale: 2 }).notNull(),
-    estimated: boolean('estimated').notNull(),
+    slotStartMs: integer('slot_start_ms').notNull(),
+    energyWh: integer('energy_wh').notNull(),
+    priceMicro: integer('price_micro').notNull(),
+    co2GPerKwh: real('co2_g_per_kwh').notNull(),
+    estimated: bool('estimated').notNull(),
   },
-  (t) => [primaryKey({ columns: [t.planId, t.slotStart] })],
+  (t) => [
+    primaryKey({ columns: [t.planId, t.slotStartMs] }),
+    check('plan_slots_aligned', sql`${t.slotStartMs} % 900000 = 0`),
+  ],
 );
 
 // Integrations & delivery --------------------------------------------------------------------
 
-export const integrations = pgTable(
+export const integrations = sqliteTable(
   'integrations',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    siteId: uuid('site_id')
+    id: id(),
+    siteId: text('site_id')
       .notNull()
       .references(() => sites.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    kind: text('kind', { enum: ['webpush', 'webhook', 'evcc', 'ha_feed', 'easee'] }).notNull(),
     /** Non-secret settings only. */
-    config: jsonb('config').notNull().default({}),
+    config: text('config', { mode: 'json' }).notNull().default({}),
     /** AES-256-GCM ciphertext, its wrapped data key, and the associated data it is bound to. */
-    secretCiphertext: bytea('secret_ciphertext'),
-    secretWrappedKey: bytea('secret_wrapped_key'),
+    secretCiphertext: blob('secret_ciphertext', { mode: 'buffer' }),
+    secretWrappedKey: blob('secret_wrapped_key', { mode: 'buffer' }),
     secretAad: text('secret_aad'),
-    enabled: boolean('enabled').notNull().default(true),
-    createdAt: instant('created_at').notNull().defaultNow(),
+    enabled: bool('enabled').notNull().default(true),
+    createdAtMs: createdAt(),
   },
   (t) => [
     check(
       'integrations_kind',
-      sql`${t.kind} in ('webpush', 'webhook', 'evcc', 'ha_mqtt', 'easee')`,
+      sql`${t.kind} in ('webpush', 'webhook', 'evcc', 'ha_feed', 'easee')`,
     ),
     check(
       'integrations_secret_complete',
@@ -253,22 +285,22 @@ export const integrations = pgTable(
   ],
 );
 
-export const deliveries = pgTable(
+export const deliveries = sqliteTable(
   'deliveries',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    integrationId: uuid('integration_id')
+    id: id(),
+    integrationId: text('integration_id')
       .notNull()
       .references(() => integrations.id, { onDelete: 'cascade' }),
-    planId: uuid('plan_id')
+    planId: text('plan_id')
       .notNull()
       .references(() => plans.id, { onDelete: 'cascade' }),
-    action: text('action').notNull(),
+    action: text('action', { enum: ['notify', 'start', 'stop', 'push_plan'] }).notNull(),
     idempotencyKey: text('idempotency_key').notNull().unique(),
-    status: text('status').notNull(),
+    status: text('status', { enum: ['pending', 'ok', 'failed'] }).notNull(),
     attempts: integer('attempts').notNull().default(0),
     lastError: text('last_error'),
-    createdAt: instant('created_at').notNull().defaultNow(),
+    createdAtMs: createdAt(),
   },
   (t) => [
     check('deliveries_action', sql`${t.action} in ('notify', 'start', 'stop', 'push_plan')`),
@@ -276,16 +308,16 @@ export const deliveries = pgTable(
   ],
 );
 
-// Verified savings (Phase 4, self-host only) ------------------------------------------------
+// Verified savings (Phase 4, deploy-your-own only) --------------------------------------------
 
-export const meterReadings = pgTable(
+export const meterReadings = sqliteTable(
   'meter_readings',
   {
-    siteId: uuid('site_id')
+    siteId: text('site_id')
       .notNull()
       .references(() => sites.id, { onDelete: 'cascade' }),
-    slotStart: instant('slot_start').notNull(),
-    kwh: numeric('kwh', { precision: 10, scale: 4 }).notNull(),
+    slotStartMs: integer('slot_start_ms').notNull(),
+    energyWh: integer('energy_wh').notNull(),
   },
-  (t) => [primaryKey({ columns: [t.siteId, t.slotStart] })],
+  (t) => [primaryKey({ columns: [t.siteId, t.slotStartMs] })],
 );
