@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec biome ci .
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Migrations match the schema
+        run: |
+          pnpm db:generate
+          test -z "$(git status --porcelain -- packages/db/migrations)" || {
+            echo "::error::packages/db/schema changed without a migration. Run pnpm db:generate and commit the result."
+            git status --porcelain -- packages/db/migrations
+            exit 1
+          }
