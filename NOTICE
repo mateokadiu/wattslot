@@ -1,0 +1,12 @@
+wattslot
+Copyright 2026 Mateo Kadiu
+
+This product includes software developed by Mateo Kadiu
+(https://github.com/mateokadiu/wattslot), licensed under the Apache License,
+Version 2.0. Applications under apps/ are licensed separately under the
+GNU Affero General Public License v3.0; see the LICENSE file in each app.
+
+Test fixtures in fixtures/eds contain data from Energi Data Service.
+Source: Energinet (www.energidataservice.dk), licensed under CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). Changes are described in
+fixtures/eds/README.md.

@@ -48,4 +48,10 @@ wattslot is not affiliated with Energinet, any grid company, evcc, Home Assistan
 
 ## License
 
-[MIT](./LICENSE)
+| Part                                                                          | License                                                                                                                                                 |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Libraries in `packages/` (`eds-client`, `pricing`, `db`, and later `planner`) | [Apache-2.0](./LICENSE) — use them anywhere, including commercially; includes a patent grant                                                            |
+| Applications in `apps/` (API, worker, web — from Phase 1)                     | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) — free to self-host and modify; if you run a modified version as a service, publish your changes |
+| Recorded data in `fixtures/eds`                                               | CC BY 4.0, Source: Energinet — see [fixtures/eds/README.md](./fixtures/eds/README.md)                                                                   |
+
+See [NOTICE](./NOTICE). The first published commits (up to `38549a8`) were released under MIT.
