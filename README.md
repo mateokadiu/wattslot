@@ -41,6 +41,7 @@ pnpm db:generate  # generate a migration after changing packages/db/src/schema.t
 # run the API locally (Cloudflare's runtime, local D1)
 pnpm --filter @wattslot/api db:migrate:local
 pnpm --filter @wattslot/api dev   # http://localhost:8787/v1/grid-companies?zone=DK2
+curl 'http://localhost:8787/__scheduled?cron=*/5+*+*+*+*'   # run the ingestion cron now
 ```
 
 Tests run against recorded API responses in [`fixtures/eds`](./fixtures/eds), including both daylight-saving days (92 and 100 slots) and a negative-price day. The pricing tests also run inside `workerd` (Cloudflare's runtime) through Miniflare.
