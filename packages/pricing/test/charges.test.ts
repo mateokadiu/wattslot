@@ -3,7 +3,7 @@ import {
   type Charge,
   chargeFromDkk,
   MissingChargeError,
-  OverlappingChargeError,
+  periodAt,
   sumCharges,
 } from '../src/index.js';
 
@@ -71,10 +71,12 @@ describe('sumCharges', () => {
     expect(() => sumCharges([tou], at('2027-05-01T12:00:00', 12))).toThrow(MissingChargeError);
   });
 
-  it('refuses overlapping periods of the same charge', () => {
-    const a = flat('A', 1, '2026-01-01T00:00:00', null);
-    const b = flat('A', 2, '2026-06-01T00:00:00', null);
-    expect(() => sumCharges([a, b], at('2026-07-01T00:00:00', 0))).toThrow(OverlappingChargeError);
+  it('lets the most recently started period win when periods overlap', () => {
+    // N1 publishes a yearly row and seasonal rows inside it; the seasonal one overrides.
+    const yearly = flat('CD', 0.2, '2026-01-01T00:00:00', '2027-01-01T00:00:00');
+    const winter = flat('CD', 0.3, '2026-10-01T00:00:00', '2027-01-01T00:00:00');
+    expect(sumCharges([winter, yearly], at('2026-10-29T00:00:00', 0))).toBe(300_000);
+    expect(sumCharges([winter, yearly], at('2026-06-01T00:00:00', 0))).toBe(200_000);
   });
 
   it('counts an ended discount as zero but keeps it while it runs', () => {
@@ -101,5 +103,20 @@ describe('sumCharges', () => {
 
   it('is zero when there are no charges at all', () => {
     expect(sumCharges([], at('2026-07-01T00:00:00', 0))).toBe(0);
+  });
+});
+
+describe('periodAt', () => {
+  const periods = [
+    { validFrom: '2026-01-01T00:00:00', validTo: '2027-01-01T00:00:00', id: 'year' },
+    { validFrom: '2026-04-01T00:00:00', validTo: '2026-10-01T00:00:00', id: 'summer' },
+    { validFrom: '2026-10-01T00:00:00', validTo: null, id: 'winter' },
+  ];
+
+  it('picks the latest-starting period in force', () => {
+    expect(periodAt(periods, '2026-02-01T00:00:00')?.id).toBe('year');
+    expect(periodAt(periods, '2026-07-01T00:00:00')?.id).toBe('summer');
+    expect(periodAt(periods, '2026-12-31T23:00:00')?.id).toBe('winter');
+    expect(periodAt(periods, '2025-12-31T23:00:00')).toBeNull();
   });
 });

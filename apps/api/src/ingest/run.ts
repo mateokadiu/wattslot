@@ -8,6 +8,7 @@ import {
   ENERGINET_GLN,
   localMidnight,
   localTime,
+  periodAt,
   toMicro,
 } from '@wattslot/pricing';
 import type { Env } from '../env.js';
@@ -120,20 +121,15 @@ const tariffs: Runner = async ({ db, eds, clock }) => {
 
   const stored = await loadCharges(db, [...glns, ENERGINET_GLN]);
   const checkpoints = [`${clock.today}T00:00:00`, `${clock.tomorrow}T23:00:00`];
-  const covered = (gln: string, code: string, requireShape: boolean) =>
-    checkpoints.every((at) => {
-      const row = stored.find(
-        (c) =>
-          c.ownerGln === gln &&
-          c.chargeCode === code &&
-          c.validFrom <= at &&
-          (c.validTo === null || at < c.validTo),
-      );
+  const covered = (gln: string, code: string, requireShape: boolean) => {
+    const periods = stored.filter((c) => c.ownerGln === gln && c.chargeCode === code);
+    return checkpoints.every((at) => {
+      const row = periodAt(periods, at);
       return (
-        row !== undefined &&
-        (!requireShape || classifyTariffShape(row.hourlyMicro).kind !== 'other')
+        row !== null && (!requireShape || classifyTariffShape(row.hourlyMicro).kind !== 'other')
       );
     });
+  };
 
   const missingEnerginet = [...ENERGINET_CONSUMER_TARIFF_CODES, ELECTRICITY_TAX_CODE].filter(
     (code) => !covered(ENERGINET_GLN, code, false),

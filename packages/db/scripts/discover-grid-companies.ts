@@ -16,6 +16,7 @@ import {
   DK_TIME_ZONE,
   fromMicro,
   localTime,
+  periodAt,
   type TariffShapeKind,
   toMicro,
 } from '@wattslot/pricing';
@@ -74,7 +75,6 @@ const normaliseName = (name: string) =>
     .replace(/[^a-z0-9æøå]/g, '');
 const normaliseNote = (note: string | null) =>
   (note ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
-const isValidAt = (c: DatahubCharge) => c.validFrom <= at && (c.validTo === null || at < c.validTo);
 const micro = (c: DatahubCharge) => c.hourlyDkkPerKwh.map(toMicro);
 
 interface Component {
@@ -100,7 +100,12 @@ function describeShape(shape: TariffShapeKind) {
 }
 
 function classify(rows: DatahubCharge[]) {
-  const valid = rows.filter(isValidAt);
+  // Per code, only the period in force counts (later-starting periods override earlier ones).
+  const byCode = new Map<string, DatahubCharge[]>();
+  for (const r of rows) byCode.set(r.code, [...(byCode.get(r.code) ?? []), r]);
+  const valid = [...byCode.values()]
+    .map((periods) => periodAt(periods, at))
+    .filter((r): r is DatahubCharge => r !== null);
   let main = valid.filter((r) => MAIN_NOTES.includes(normaliseNote(r.note)));
   for (const note of MAIN_NOTES) {
     const exact = main.filter((r) => normaliseNote(r.note) === note);

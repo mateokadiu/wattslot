@@ -66,24 +66,30 @@ export class MissingChargeError extends Error {
   }
 }
 
-export class OverlappingChargeError extends Error {
-  constructor(
-    readonly ownerGln: string,
-    readonly code: string,
-    readonly at: string,
-  ) {
-    super(`more than one ${ownerGln}/${code} charge valid at ${at}`);
-    this.name = 'OverlappingChargeError';
-  }
+export interface Validity {
+  validFrom: string;
+  validTo: string | null;
 }
 
-const isValidAt = (c: Charge, wallClock: string) =>
-  c.validFrom <= wallClock && (c.validTo === null || wallClock < c.validTo);
+/**
+ * The period in force at a local wall-clock time. DataHub records a price change as a new
+ * period that overrides earlier ones from its start, so periods can overlap (a yearly row plus
+ * seasonal rows inside it): the one that started most recently wins.
+ */
+export function periodAt<T extends Validity>(periods: readonly T[], wallClock: string): T | null {
+  let current: T | null = null;
+  for (const p of periods) {
+    if (p.validFrom <= wallClock && (p.validTo === null || wallClock < p.validTo)) {
+      if (current === null || p.validFrom > current.validFrom) current = p;
+    }
+  }
+  return current;
+}
 
 /**
- * Sum of every distinct charge (owner + code) at a local time. A required charge must have
- * exactly one valid row — a gap means our data is stale, which must never silently price as
- * zero. An optional charge (a discount that has ended) contributes zero instead.
+ * Sum of every distinct charge (owner + code) at a local time, using the period in force for
+ * each. A required charge with no period in force means our data is stale, which must never
+ * silently price as zero. An optional charge (a discount that has ended) contributes zero.
  */
 export function sumCharges(charges: readonly Charge[], at: LocalTime): Micro {
   const groups = new Map<string, Charge[]>();
@@ -96,16 +102,13 @@ export function sumCharges(charges: readonly Charge[], at: LocalTime): Micro {
 
   let total = 0;
   for (const group of groups.values()) {
-    const valid = group.filter((c) => isValidAt(c, at.wallClock));
-    const first = group[0] as Charge;
-    if (valid.length === 0) {
+    const current = periodAt(group, at.wallClock);
+    if (current === null) {
+      const first = group[0] as Charge;
       if (group.every((c) => c.optional)) continue;
       throw new MissingChargeError(first.ownerGln, first.code, at.wallClock);
     }
-    if (valid.length > 1) {
-      throw new OverlappingChargeError(first.ownerGln, first.code, at.wallClock);
-    }
-    total += (valid[0] as Charge).hourly[at.hour] as Micro;
+    total += current.hourly[at.hour] as Micro;
   }
   return total;
 }

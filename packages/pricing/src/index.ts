@@ -4,8 +4,9 @@ export {
   type ChargeOptions,
   chargeFromDkk,
   MissingChargeError,
-  OverlappingChargeError,
+  periodAt,
   sumCharges,
+  type Validity,
 } from './charges.js';
 export {
   DK_TIME_ZONE,
