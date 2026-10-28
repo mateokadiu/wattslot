@@ -6,13 +6,14 @@ The price you pay isn't the spot price. In Denmark it's spot + your grid company
 
 > **Status:** Phase 0 — pricing core and data client. See [PLAN.md](./PLAN.md) for the full design and roadmap.
 
-## Packages
+## Workspace
 
 | Package                                         | What it does                                                                                                                                                               |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`@wattslot/eds-client`](./packages/eds-client) | Typed client for [Energi Data Service](https://www.energidataservice.dk): day-ahead prices, CO₂ emissions and forecasts, DataHub tariffs. Zod-validated, rate-limit aware. |
 | [`@wattslot/pricing`](./packages/pricing)       | Pure functions: all-in price per 15-minute slot with a per-component breakdown, integer money maths, DST-correct local time. Tested in Node and inside `workerd`.          |
-| [`@wattslot/db`](./packages/db)                 | D1 (SQLite) schema with Drizzle, and migrations.                                                                                                                           |
+| [`@wattslot/db`](./packages/db)                 | D1 (SQLite) schema with Drizzle, migrations, and household tariffs for 35 Danish grid companies (31 supported, 99.7% of metering points).                                  |
+| [`@wattslot/api`](./apps/api)                   | Cloudflare Worker: Hono REST API with OpenAPI at `/openapi.json`. AGPL-3.0.                                                                                                |
 
 ## Example
 
@@ -36,6 +37,10 @@ pnpm check        # biome + typecheck + tests
 pnpm test         # tests only
 pnpm lint:fix     # format and fix with Biome
 pnpm db:generate  # generate a migration after changing packages/db/src/schema.ts
+
+# run the API locally (Cloudflare's runtime, local D1)
+pnpm --filter @wattslot/api db:migrate:local
+pnpm --filter @wattslot/api dev   # http://localhost:8787/v1/grid-companies?zone=DK2
 ```
 
 Tests run against recorded API responses in [`fixtures/eds`](./fixtures/eds), including both daylight-saving days (92 and 100 slots) and a negative-price day. The pricing tests also run inside `workerd` (Cloudflare's runtime) through Miniflare.
