@@ -3,7 +3,7 @@
 > An open-source planning engine, free to run on Cloudflare, that tells you — or your charger, heat pump or Home Assistant — **when** to use electricity, using the price you actually pay (spot + grid tariff + taxes + VAT) and the grid's CO₂ forecast, at 15-minute resolution.
 
 **Status:** Decisions confirmed 2026-10-28 (§13). Phase 0 done (§15).
-**Research date:** 2026-10-28. Every market number below has a source in §17; anything not verified is marked _(unverified)_.
+**Research date:** 2026-10-28. Every market number below has a source in §18; anything not verified is marked _(unverified)_.
 
 ---
 
@@ -566,7 +566,99 @@ wattslot/
 
 ---
 
-## 16. Out of scope (explicit)
+## 16. SEO plan (drafted 2026-10-29)
+
+Lighthouse already scores SEO 100 on every page. That is the floor, not the goal. The goal is to rank in Danish search for the queries where the full price changes the answer, to be cited by AI answer engines, and to earn links — so that the public site can carry a business later. Rankings can't be promised: a new site typically takes months to rank, and established sites have years of links.
+
+### 16.1 Audit (2026-10-29)
+
+| Area                                          | State                                                                                     |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Titles, canonical, hreflang (5 + `x-default`) | ✅ Present on every page                                                                  |
+| Speed / Core Web Vitals                       | ✅ Static pages; Lighthouse 100 desktop, 97–100 mobile                                    |
+| **Prices in the HTML**                        | ❌ Client-rendered: crawlers and AI bots that don't run JavaScript see "Fetching prices…" |
+| **Pages that can rank**                       | ❌ One page per language — one URL competes for every query                               |
+| Sitemap                                       | ❌ `/sitemap.xml` is 404; `robots.txt` doesn't point to one                               |
+| Meta descriptions                             | ❌ 176–262 characters (search results show ~155)                                          |
+| Share image                                   | ❌ None; `twitter:card` is `summary`                                                      |
+| Structured data                               | ❌ None                                                                                   |
+| API responses                                 | ❌ `/v1/*`, `/openapi.json` can be indexed                                                |
+| Trust pages (method, about, privacy)          | ❌ None                                                                                   |
+| Measurement                                   | ❌ No Search Console, Bing Webmaster Tools or analytics                                   |
+
+### 16.2 Decisions needed
+
+1. **Domain.** All links and brand value accrue to the hostname. If the site is meant to make money, move to its own domain **before** building links; moving later works (301 redirects) but costs time. On 2026-10-29 `wattslot.dk` and `wattslot.com` returned no whois record (verify at a registrar); `wattslot.eu` is taken. A domain is a yearly fee.
+2. **Danish first.** Full price — the differentiator — only exists for DK1/DK2. Danish queries come first; the DE/NO/SE pages stay spot-only and low priority, since established players own those searches.
+3. **Analytics.** Cloudflare Web Analytics: free, cookieless, no consent banner.
+4. **Keyword data.** The volumes below are unverified. Validate them with Search Console after launch, or with Ahrefs/Semrush if an account is available.
+
+### 16.3 Keyword targets (candidates, volumes unverified)
+
+| Intent              | Danish queries                                                         | English (expats)                    | Page                               |
+| ------------------- | ---------------------------------------------------------------------- | ----------------------------------- | ---------------------------------- |
+| Price now / today   | elpris i dag, elprisen lige nu, elpris time for time, elpris dk1 / dk2 | electricity price denmark today     | `/da/`, `/da/elpris/dk1/`, `/dk2/` |
+| Tomorrow            | elpris i morgen                                                        | electricity price tomorrow denmark  | area pages (tomorrow section)      |
+| Grid company        | nettarif radius, {netselskab} nettarif, tarifmodel 3.0                 | {grid company} tariff               | `/da/netselskab/{slug}/`           |
+| When to use power   | hvornår er strømmen billigst, billigste tidspunkt at vaske, lade elbil | cheapest time to charge ev denmark  | `/da/guide/{slug}/`                |
+| What's in the price | hvad består elprisen af, elafgift 2026, kvarterspriser                 | what makes up the electricity price | `/da/metode/`, guides              |
+
+### 16.4 Work packages
+
+**S1 — Technical foundation (~1 day, no new content)**
+
+- `sitemap.xml` for every page and language, with hreflang alternates and `lastmod`; `Sitemap:` line in `robots.txt`.
+- `X-Robots-Tag: noindex` on `/v1/*`, `/openapi.json` and `/health`.
+- Titles ≤ 60 characters with the main query in each language (e.g. "Elpris i dag – kvarter for kvarter, inkl. nettarif | wattslot"); a separate ≤ 155-character `metaDescription` per language.
+- A 1200×630 share image per language (tagline plus a day's price chart), `summary_large_image`.
+- JSON-LD: `WebApplication` (free, languages, author, licence) and `Dataset` for the price data (source Energinet, CC BY 4.0, derived by wattslot) for Google Dataset Search.
+- `apple-touch-icon` and PNG manifest icons.
+- CI guards: Playwright checks title and description lengths, a single canonical, reciprocal hreflang, valid JSON-LD and a sitemap entry for every page; Lighthouse CI asserts SEO 100 and performance ≥ 95 on every language.
+
+**S2 — Prices in the HTML (~1–2 days)**
+
+- Pre-render the day's facts into each page: cheapest two hours, min / max / average, and an hourly `<table>` per area, for today and (after ~13:00) tomorrow. The page still hydrates to the live view.
+- Mechanism: a scheduled GitHub Action rebuilds and deploys at ~00:05 and ~13:20 Copenhagen time, reading the production API at build time. The HTML stays a free static asset. _Considered:_ rewriting HTML at the edge (`HTMLRewriter`) — always fresh, but every page view becomes a Worker request against the 100k/day free quota.
+- "Opdateret" timestamp in `<time>`, `dateModified` in JSON-LD.
+- Headings that contain the query ("Elprisen i dag", "Elprisen i morgen").
+- IndexNow ping after each deploy (Bing and others; free).
+
+**S3 — Pages that can rank (~3–5 days)**
+
+- Area pages: `/da/elpris/dk1/`, `/dk2/` and English twins; DE/NO/SE spot pages in their own languages.
+- One page per supported grid company (31): current tariff by season and time band, valid-from date, today's all-in price with that company, link to the source. Long-tail, low-competition and evergreen. Needs a small `/v1/tariffs?gln=` endpoint. A page is only generated when it has real data — no thin duplicates.
+- 4–6 guides: appliances, EV charging, Tarifmodel 3.0, 15-minute prices since October 2025, electricity tax — each with a live widget and sourced numbers.
+- Method page (how the price is calculated, sources, update times, author), About, and Privacy. These build trust and are needed for monetisation anyway.
+- Internal links: home → areas → grid companies → guides; breadcrumbs with `BreadcrumbList`.
+- No redirects by browser language (they confuse crawlers); a dismissible "Se siden på dansk" hint instead.
+
+**S4 — Authority and distribution (ongoing)**
+
+- Search Console and Bing Webmaster Tools (DNS TXT records in Cloudflare); submit the sitemap.
+- An embeddable "Elprisen i dag" widget (iframe or web component) with an attribution link.
+- Phase 3 integrations (Home Assistant, evcc) double as link sources: their docs link back.
+- A readable API docs page, not just `openapi.json`.
+- Share in communities where people ask these questions (EV forums, Home Assistant community, r/Denmark), once S2–S3 are live.
+- `llms.txt`, and AI crawlers allowed: answer engines cite pages whose facts are in the HTML, which S2 provides.
+
+### 16.5 Targets
+
+- Lighthouse SEO 100 and performance ≥ 95 on every page, enforced in CI.
+- 0 errors in Google's Rich Results Test and the Schema.org validator.
+- Every sitemap URL indexed; Core Web Vitals "Good" in Search Console.
+- Monthly review of impressions and clicks per query; rewrite titles with low click-through.
+
+### 16.6 Keeping monetisation open
+
+- Analytics stays cookieless. Ads or affiliate links would need consent handling and reserved space so they don't cause layout shift.
+- Energinet data is CC BY 4.0: commercial use is allowed with attribution, which the site already shows (§12.2).
+- A commercial full-price API is an open gap (§2.5: Strømligning's API is non-commercial) — a B2B option alongside search traffic.
+
+**Order:** domain decision → S1 → S2 → S3, with S4 running alongside.
+
+---
+
+## 17. Out of scope (explicit)
 
 - Trading, bidding into flexibility markets, or acting as an independent aggregator (the Danish aggregator model is expected to go live around Q1 2027 — revisit then).
 - Battery arbitrage / solar self-consumption optimisation (EMHASS covers it).
@@ -575,7 +667,7 @@ wattslot/
 
 ---
 
-## 17. Sources
+## 18. Sources
 
 **Data & APIs**
 - Energi Data Service — DayAheadPrices metadata: https://api.energidataservice.dk/meta/dataset/DayAheadPrices
