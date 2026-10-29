@@ -92,3 +92,60 @@ export function structuredData(locale: Locale, modified: string) {
 /** JSON for a <script type="application/ld+json">, safe to inline in HTML. */
 export const jsonLdScript = (data: unknown): string =>
   JSON.stringify(data).replace(/</g, '\\u003c');
+
+export interface Breadcrumb {
+  name: string;
+  href: string;
+}
+
+/** schema.org graph for a page below a home page: the page, its breadcrumbs, site and author. */
+export function pageGraph({
+  locale,
+  url,
+  title,
+  description,
+  modified,
+  crumbs,
+  type = 'WebPage',
+  extra = [],
+}: {
+  locale: Locale;
+  url: string;
+  title: string;
+  description: string;
+  modified: string;
+  crumbs: Breadcrumb[];
+  type?: 'WebPage' | 'AboutPage' | 'CollectionPage';
+  extra?: Record<string, unknown>[];
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': type,
+        '@id': `${url}#page`,
+        url,
+        name: title,
+        description,
+        inLanguage: locale,
+        dateModified: modified,
+        isPartOf: { '@id': WEBSITE_ID },
+        breadcrumb: { '@id': `${url}#breadcrumb` },
+        author: { '@id': AUTHOR.id },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${url}#breadcrumb`,
+        itemListElement: crumbs.map((c, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: c.name,
+          item: absolute(c.href),
+        })),
+      },
+      { '@type': 'WebSite', '@id': WEBSITE_ID, url: pageUrl('en'), name: 'wattslot' },
+      { '@type': 'Person', '@id': AUTHOR.id, name: AUTHOR.name, url: AUTHOR.url },
+      ...extra,
+    ],
+  };
+}

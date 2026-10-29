@@ -623,14 +623,36 @@ Lighthouse already scores SEO 100 on every page. That is the floor, not the goal
 - Headings that contain the query ("Elprisen i dag", "Elprisen i morgen").
 - IndexNow ping after each deploy (Bing and others; free).
 
-**S3 — Pages that can rank (~3–5 days)**
+**S3 — Pages that can rank (~3–5 days; spec 2026-10-29)**
 
-- Area pages: `/da/elpris/dk1/`, `/dk2/` and English twins; DE/NO/SE spot pages in their own languages.
-- One page per supported grid company (31): current tariff by season and time band, valid-from date, today's all-in price with that company, link to the source. Long-tail, low-competition and evergreen. Needs a small `/v1/tariffs?gln=` endpoint. A page is only generated when it has real data — no thin duplicates.
-- 4–6 guides: appliances, EV charging, Tarifmodel 3.0, 15-minute prices since October 2025, electricity tax — each with a live widget and sourced numbers.
-- Method page (how the price is calculated, sources, update times, author), About, and Privacy. These build trust and are needed for monetisation anyway.
-- Internal links: home → areas → grid companies → guides; breadcrumbs with `BreadcrumbList`.
-- No redirects by browser language (they confuse crawlers); a dismissible "Se siden på dansk" hint instead.
+Danish and English only — that's where the full price, and the market, is. The DE/NO/SE home pages already cover their spot prices. Every page has a Danish/English twin, linked both ways by hreflang (`x-default` = English).
+
+_URLs (permanent once indexed):_
+
+| Page                   | Danish                                     | English                            | Pages  |
+| ---------------------- | ------------------------------------------ | ---------------------------------- | ------ |
+| Price area             | `/da/elpris/dk1/`, `dk2/`                  | `/electricity-price/dk1/`, `dk2/`  | 2 × 2  |
+| Grid companies (hub)   | `/da/netselskaber/`                        | `/grid-companies/`                 | 1 × 2  |
+| Grid company           | `/da/netselskaber/{slug}/`                 | `/grid-companies/{slug}/`          | 28 × 2 |
+| Guides (hub)           | `/da/guides/`                              | `/guides/`                         | 1 × 2  |
+| Guide                  | `/da/guides/{slug}/`                       | `/guides/{slug}/`                  | 4 × 2  |
+| Method, About, Privacy | `/da/metode/`, `/da/om/`, `/da/privatliv/` | `/method/`, `/about/`, `/privacy/` | 3 × 2  |
+
+_Grid company pages._ One page per company, not per grid area: N1's three areas (131, 344, 016) and Konstant's two (151, 245) have near-identical tariffs, and separate pages would be duplicate content — 28 pages for the 31 supported mappings. The 4 unsupported companies get none. Slug from the name: lower case, æ/ø/å → ae/oe/aa, legal suffixes and area numbers dropped (`radius-elnet`, `n1`, `trefor-el-net-oest`). Content: the tariff by time band (low 00–06, high 06–17 and 21–24, peak 17–21; checked 2026-10-29: all 31 fit these bands, 4 are flat) excluding and including VAT, for every published period from today on; today's and tomorrow's all-in prices with that company; its price area and size; links to the area page, the hub and the live view preset to that company.
+
+_Data._ A new `GET /v1/tariffs?gln=` returns a company's tariff periods (valid from/to, 24 hourly prices excl. VAT) from today on. `scripts/fetch-prices.ts` also saves tariffs and all-in prices for each company: ~60 requests per build, spaced to stay under the WAF limit.
+
+_Area pages:_ the area's facts (with its largest grid company), the regions it covers, and its grid companies.
+
+_Guides (4):_ when electricity is cheapest (appliances); charging an EV cheaply (§2.3 numbers); Tarifmodel 3.0 explained (with the largest companies' tariffs from data); 15-minute prices since 1 October 2025. Every number either comes from the data at build time or has a source. `Article` structured data with author and dates.
+
+_Method, About, Privacy:_ how the price is calculated and from what (sources, update times, what's left out), who runs it, and what is stored (no cookies, no accounts; preferences in the browser).
+
+_Shared:_ breadcrumbs with `BreadcrumbList`; site links in the footer; the language switch goes to the twin page; every page in the sitemap; SEO checks run on every sitemap URL; Lighthouse CI on one page per template.
+
+_Delivery, each step deployed:_ S3a page shell + Method/About/Privacy → S3b area pages → S3c `/v1/tariffs` + grid company pages → S3d guides → S3e internal links.
+
+_Deliberately not:_ redirects by browser language (they confuse crawlers).
 
 **S4 — Authority and distribution (ongoing)**
 

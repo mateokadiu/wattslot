@@ -52,6 +52,13 @@ export const dictionaries = {
     factsNoteFull: (companies: string) =>
       `All-in price per kWh: spot price, grid tariff (${companies}), Energinet’s tariffs, electricity tax and VAT. Your supplier’s markup isn’t included. Pick your own grid company at the top for your exact price.`,
     factsNoteSpot: 'Spot price per kWh, without grid tariffs, taxes or VAT.',
+    nav: {
+      label: 'Site',
+      method: 'Method',
+      about: 'About',
+      privacy: 'Privacy',
+      breadcrumb: 'Breadcrumb',
+    },
     languages: 'Language',
     verdictNow: 'Good time to use power',
     verdictWait: (time: string, pct: string) => `Wait until ${time} — ${pct}% cheaper`,
@@ -152,6 +159,13 @@ export const dictionaries = {
     factsNoteFull: (companies: string) =>
       `Fuld pris pr. kWh: spotpris, nettarif (${companies}), Energinets tariffer, elafgift og moms. Din elleverandørs tillæg er ikke med. Vælg dit eget netselskab øverst for din præcise pris.`,
     factsNoteSpot: 'Spotpris pr. kWh uden nettarif, afgifter og moms.',
+    nav: {
+      label: 'Sider',
+      method: 'Metode',
+      about: 'Om wattslot',
+      privacy: 'Privatliv',
+      breadcrumb: 'Brødkrummesti',
+    },
     languages: 'Sprog',
     verdictNow: 'Godt tidspunkt at bruge strøm',
     verdictWait: (time: string, pct: string) => `Vent til kl. ${time} – ${pct}${NBSP}% billigere`,
@@ -253,6 +267,13 @@ export const dictionaries = {
     factsNoteFull: (companies: string) =>
       `Endpreis pro kWh: Spotpreis, Netzentgelt (${companies}), Energinet-Tarife, Stromsteuer und MwSt., ohne Aufschlag deines Stromanbieters. Wähle oben deinen Netzbetreiber für deinen genauen Preis.`,
     factsNoteSpot: 'Börsenstrompreis (Spotpreis) pro kWh, ohne Netzentgelte, Steuern und Abgaben.',
+    nav: {
+      label: 'Seiten',
+      method: 'Methode',
+      about: 'Über wattslot',
+      privacy: 'Datenschutz',
+      breadcrumb: 'Brotkrümelnavigation',
+    },
     languages: 'Sprache',
     verdictNow: 'Jetzt Strom nutzen',
     verdictWait: (time: string, pct: string) => `Warte bis ${time} Uhr – ${pct}${NBSP}% günstiger`,
@@ -358,6 +379,13 @@ export const dictionaries = {
     factsNoteFull: (companies: string) =>
       `Full pris per kWh: spotpris, nettleie (${companies}), Energinets tariffer, elavgift og mva. Strømleverandørens påslag er ikke med. Velg nettselskapet ditt øverst for nøyaktig pris.`,
     factsNoteSpot: 'Spotpris per kWh, uten nettleie, avgifter og mva.',
+    nav: {
+      label: 'Sider',
+      method: 'Metode',
+      about: 'Om wattslot',
+      privacy: 'Personvern',
+      breadcrumb: 'Brødsmulesti',
+    },
     languages: 'Språk',
     verdictNow: 'Godt tidspunkt å bruke strøm',
     verdictWait: (time: string, pct: string) => `Vent til kl. ${time} – ${pct}${NBSP}% billigere`,
@@ -459,6 +487,13 @@ export const dictionaries = {
     factsNoteFull: (companies: string) =>
       `Hela priset per kWh: spotpris, nätavgift (${companies}), Energinets avgifter, elskatt och moms. Elhandlarens påslag ingår inte. Välj ditt nätbolag högst upp för exakt pris.`,
     factsNoteSpot: 'Spotpris per kWh, utan nätavgift, skatter och moms.',
+    nav: {
+      label: 'Sidor',
+      method: 'Metod',
+      about: 'Om wattslot',
+      privacy: 'Integritet',
+      breadcrumb: 'Brödsmulor',
+    },
     languages: 'Språk',
     verdictNow: 'Bra läge att använda el',
     verdictWait: (time: string, pct: string) => `Vänta till kl. ${time} – ${pct}${NBSP}% billigare`,

@@ -72,14 +72,60 @@ for (const { path, lang } of PAGES) {
   });
 }
 
+/** Each sitemap entry: its URL and the hreflang → URL map it declares. */
+async function sitemapEntries(request: import('@playwright/test').APIRequestContext) {
+  const xml = await (await request.get('/sitemap.xml')).text();
+  return [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(([, body = '']) => ({
+    loc: /<loc>([^<]+)<\/loc>/.exec(body)?.[1] ?? '',
+    alternates: Object.fromEntries(
+      [...body.matchAll(/hreflang="([^"]+)" href="([^"]+)"/g)].map(([, l, h]) => [l, h]),
+    ),
+  }));
+}
+
 test('the sitemap lists every page with all its translations', async ({ request }) => {
   const response = await request.get('/sitemap.xml');
   expect(response.status()).toBe(200);
   expect(response.headers()['content-type']).toContain('xml');
-  const xml = await response.text();
-  for (const { path } of PAGES) expect(xml).toContain(`<loc>${SITE}${path}</loc>`);
-  expect(xml.match(/<url>/g)).toHaveLength(PAGES.length);
-  expect(xml.match(/hreflang=/g)).toHaveLength(PAGES.length * Object.keys(HREFLANGS).length);
+  const entries = await sitemapEntries(request);
+  for (const { path } of PAGES) expect(entries.map((e) => e.loc)).toContain(`${SITE}${path}`);
+  for (const entry of entries) {
+    // Every page is one of its own translations, and every translation is in the sitemap.
+    expect(Object.values(entry.alternates), entry.loc).toContain(entry.loc);
+    for (const href of Object.values(entry.alternates)) {
+      expect(
+        entries.map((e) => e.loc),
+        href,
+      ).toContain(href);
+    }
+  }
+});
+
+test('every page in the sitemap has a title, description, canonical and twins', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  for (const entry of await sitemapEntries(request)) {
+    await page.goto(local(entry.loc));
+    const where = entry.loc;
+    const title = await page.title();
+    expect(title.length, `${where}: ${title}`).toBeLessThanOrEqual(60);
+    const description =
+      (await page.locator('head meta[name="description"]').getAttribute('content')) ?? '';
+    expect(description.length, `${where}: ${description}`).toBeGreaterThanOrEqual(110);
+    expect(description.length, `${where}: ${description}`).toBeLessThanOrEqual(160);
+    await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute('href', entry.loc);
+    const declared = await page
+      .locator('head link[rel="alternate"][hreflang]')
+      .evaluateAll((links) =>
+        Object.fromEntries(links.map((l) => [l.getAttribute('hreflang'), l.getAttribute('href')])),
+      );
+    expect(declared, where).toEqual(entry.alternates);
+    await expect(page.locator('h1'), where).toHaveCount(1);
+    const jsonLd = await page.locator('script[type="application/ld+json"]').textContent();
+    expect(() => JSON.parse(jsonLd ?? ''), where).not.toThrow();
+  }
 });
 
 test('robots.txt allows crawling and points at the sitemap', async ({ request }) => {

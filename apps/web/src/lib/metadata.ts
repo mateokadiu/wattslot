@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { dictionaries, LOCALES, type Locale } from './i18n';
+import { alternates, type Route } from './routes';
 import { languageAlternates, ogImagePath, SITE_URL } from './site';
 
 export const viewport: Viewport = {
@@ -41,5 +42,37 @@ export function metadataFor(locale: Locale): Metadata {
       description: t.metaDescription,
       images: [image],
     },
+  };
+}
+
+/** Metadata for a page below a home page: its own title, canonical and language twins. */
+export function pageMetadata(
+  locale: Locale,
+  route: Route,
+  title: string,
+  description: string,
+  type: 'website' | 'article' = 'website',
+): Metadata {
+  const path = route.paths[locale] ?? LOCALES[locale].path;
+  const image = {
+    url: ogImagePath(locale),
+    width: 1200,
+    height: 630,
+    alt: dictionaries[locale].tagline,
+  };
+  return {
+    title,
+    description,
+    alternates: { canonical: path, languages: alternates(route) },
+    openGraph: {
+      type,
+      siteName: 'wattslot',
+      title,
+      description,
+      locale: LOCALES[locale].og,
+      url: path,
+      images: [image],
+    },
+    twitter: { card: 'summary_large_image', title, description, images: [image] },
   };
 }
