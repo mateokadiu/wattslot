@@ -32,6 +32,11 @@ export const dictionaries = {
     chartModes: { level: 'Price level', breakdown: 'What you pay for' },
     hourlyNote: 'Hourly averages on small screens.',
     money: (value: string) => `${value} kr.`,
+    searchCompany: 'Search grid company…',
+    noCompany: 'No grid company found.',
+    fullPriceGroup: 'Full price',
+    spotOnlyGroup: 'Spot price only',
+    meters: (n: string) => `${n} meters`,
     priceArea: 'Price area',
     areas: {
       DK1: 'DK1 · West Denmark',
@@ -122,6 +127,11 @@ export const dictionaries = {
     chartModes: { level: 'Prisniveau', breakdown: 'Hvad du betaler for' },
     hourlyNote: 'Timegennemsnit på små skærme.',
     money: (value: string) => `${value} kr.`,
+    searchCompany: 'Søg netselskab…',
+    noCompany: 'Intet netselskab fundet.',
+    fullPriceGroup: 'Fuld pris',
+    spotOnlyGroup: 'Kun spotpris',
+    meters: (n: string) => `${n} målere`,
     priceArea: 'Prisområde',
     areas: {
       DK1: 'DK1 · Vestdanmark',

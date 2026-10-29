@@ -13,7 +13,8 @@
       "!**/dist",
       "!fixtures",
       "!packages/db/migrations",
-      "!packages/db/seed"
+      "!packages/db/seed",
+      "!**/pnpm-lock.yaml"
     ]
   },
   "assist": {

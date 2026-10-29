@@ -59,6 +59,20 @@ test('falls back to spot prices, and says so, for a grid company without current
   await expect(page.getByRole('status')).toContainText('Spot price only');
 });
 
+test('finds a grid company by typing, and switches price area', async ({ page }) => {
+  await open(page);
+  await page.getByRole('combobox', { name: 'Grid company' }).click();
+  await page.keyboard.type('ceri');
+  await page.getByRole('option', { name: /Cerius A\/S/ }).click();
+  await expect(page).toHaveURL(/gln=5790000705184/);
+  await expect(page.getByRole('combobox', { name: 'Grid company' })).toHaveText(/Cerius A\/S/);
+
+  await page.getByRole('combobox', { name: 'Price area' }).click();
+  await page.getByRole('option', { name: 'DK1 · West Denmark' }).click();
+  await expect(page).toHaveURL(/zone=DK1/);
+  await expect(page.getByRole('combobox', { name: 'Grid company' })).not.toHaveText(/Cerius/);
+});
+
 test('keeps tomorrow disabled until its prices are published', async ({ page }) => {
   await open(page);
   const tomorrow = page.getByRole('tab', { name: 'Tomorrow' });

@@ -3,6 +3,25 @@
 @theme inline {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* shadcn/ui tokens, mapped onto the theme below so components follow light and dark mode. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--foreground);
+  --color-primary-foreground: var(--background);
+  --color-secondary: var(--grid);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--grid);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--grid);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--expensive);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
 }
 
 /* Neutrals and type follow mateokadiu.com; the accent is green because here green means cheap. */
@@ -53,6 +72,15 @@
     --vat: oklch(0.42 0.02 255);
     --co2: oklch(0.78 0.14 160);
     color-scheme: dark;
+  }
+}
+
+/* shadcn/ui components draw borders with the plain `border` class; give them the theme's colour. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
   }
 }
 

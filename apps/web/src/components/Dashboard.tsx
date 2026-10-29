@@ -2,6 +2,7 @@
 
 import { cheapestWindow } from '@wattslot/planner';
 import { localTime } from '@wattslot/pricing';
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import { type Co2, type GridCompany, getJson, type Prices, type Zone } from '@/lib/api';
 import type { PriceSlot } from '@/lib/chart';
@@ -9,6 +10,26 @@ import { clock, duration, kwh, price } from '@/lib/format';
 import { type Dictionary, dictionaries, type Locale } from '@/lib/i18n';
 import { planTask, SLOT_MS, slotsFor, TASKS, type Task, verdict } from '@/lib/insights';
 import { type ChartMode, PriceChart } from './PriceChart';
+
+/** Same size as a picker, so the lazily loaded controls replace it without moving the page. */
+function PickerPlaceholder() {
+  return (
+    <div aria-hidden="true">
+      <div className="mb-1.5 h-[17px]" />
+      <div className="h-11 rounded-lg border border-[var(--border)] bg-[var(--card)]" />
+    </div>
+  );
+}
+
+// The pickers (Radix + cmdk) load after the page has painted; they're not needed for first paint.
+const AreaPicker = dynamic(() => import('./Pickers').then((m) => m.AreaPicker), {
+  ssr: false,
+  loading: PickerPlaceholder,
+});
+const GridCompanyPicker = dynamic(() => import('./Pickers').then((m) => m.GridCompanyPicker), {
+  ssr: false,
+  loading: PickerPlaceholder,
+});
 
 const DEFAULTS = {
   zone: 'DK2',
@@ -216,8 +237,6 @@ export function Dashboard({ locale }: { locale: Locale }) {
   const verdictTone =
     v?.kind === 'wait' ? 'var(--expensive)' : v?.kind === 'now' ? 'var(--cheap)' : 'var(--muted)';
 
-  const field =
-    'mt-1.5 block w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]';
   const pill =
     'rounded-md px-3 py-1.5 text-sm transition-colors aria-selected:bg-[var(--foreground)] aria-selected:text-[var(--background)] aria-pressed:bg-[var(--foreground)] aria-pressed:text-[var(--background)] disabled:opacity-40';
 
@@ -243,38 +262,20 @@ export function Dashboard({ locale }: { locale: Locale }) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="label block">
-          {t.priceArea}
-          <select
-            className={`${field} font-sans normal-case tracking-normal text-[var(--foreground)]`}
-            value={prefs?.zone ?? DEFAULTS.zone}
-            onChange={(e) => update({ zone: e.target.value })}
-          >
-            {zones.map((z) => (
-              <option key={z.code} value={z.code}>
-                {z.code === 'DK1' || z.code === 'DK2'
-                  ? t.areas[z.code]
-                  : `${z.code} · ${t.areas.other}`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="label block">
-          {t.gridCompany}
-          <select
-            className={`${field} font-sans normal-case tracking-normal text-[var(--foreground)]`}
-            value={prefs?.gln ?? ''}
-            disabled={!zone?.fullPrice}
-            onChange={(e) => update({ gln: e.target.value })}
-          >
-            <option value="">{t.chooseCompany}</option>
-            {companies.map((g) => (
-              <option key={g.gln} value={g.gln}>
-                {g.supported ? g.name : `${g.name} (${t.spotOnlySuffix})`}
-              </option>
-            ))}
-          </select>
-        </label>
+        <AreaPicker
+          t={t}
+          zones={zones}
+          value={prefs?.zone ?? DEFAULTS.zone}
+          onChange={(z) => update({ zone: z })}
+        />
+        <GridCompanyPicker
+          t={t}
+          locale={locale}
+          companies={companies}
+          value={prefs?.gln ?? ''}
+          disabled={!zone?.fullPrice}
+          onChange={(gln) => update({ gln })}
+        />
       </div>
 
       {note && (
