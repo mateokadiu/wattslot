@@ -13,7 +13,10 @@ const at = (hhmm: string) => {
   return Date.UTC(2026, 9, 28, h - 1, m);
 };
 const done = (ms: number): TaskState => ({ lastSuccessAtMs: ms, nextAttemptAtMs: null });
-const recent = new Map<Task, TaskState>([['tariffs', done(at('02:00'))]]);
+const recent = new Map<Task, TaskState>([
+  ['tariffs', done(at('02:00'))],
+  ['cleanup', done(at('02:00'))],
+]);
 const due = (hhmm: string, states: Map<Task, TaskState> = recent) =>
   dueTasks(clockAt(at(hhmm)), states);
 
@@ -45,6 +48,12 @@ describe('dueTasks', () => {
     expect(due('03:10', new Map())).toContain('tariffs');
     expect(due('03:10')).not.toContain('tariffs');
     expect(due('02:00')).toContain('tariffs');
+  });
+
+  it('cleans up old data at 03:30, or straight away when it has been missed', () => {
+    expect(due('03:30')).toContain('cleanup');
+    expect(due('03:35')).not.toContain('cleanup');
+    expect(due('10:10', new Map([['tariffs', done(at('02:00'))]]))).toEqual(['cleanup']);
   });
 
   it('skips a task while it backs off after a rate limit', () => {

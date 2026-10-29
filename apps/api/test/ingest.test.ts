@@ -50,6 +50,27 @@ describe('ingestion cron', () => {
     ).toBe(30);
   });
 
+  it('deletes prices and CO₂ data older than the retention period, nightly', async () => {
+    const old = Date.UTC(2025, 0, 1); // over 400 days before 28 Oct 2026
+    await h.db.batch([
+      h.db
+        .prepare(
+          "insert into spot_prices (zone, slot_start_ms, price_micro, price_eur_micro, source) values ('DK2', ?, 1, 1, 'test')",
+        )
+        .bind(old),
+      h.db
+        .prepare(
+          "insert into co2_intensity (zone, time_ms, kind, g_per_kwh, issued_at_ms) values ('DK2', ?, 'actual', 100, ?)",
+        )
+        .bind(old, old),
+    ]);
+    expect(await count('select count(*) n from spot_prices')).toBe(193);
+    await h.tick('03:30');
+    expect(await count(`select count(*) n from spot_prices where slot_start_ms = ${old}`)).toBe(0);
+    expect(await count(`select count(*) n from co2_intensity where time_ms = ${old}`)).toBe(0);
+    expect(await count('select count(*) n from spot_prices')).toBe(192); // this week's untouched
+  });
+
   it('skips work that is already done and writes nothing unchanged', async () => {
     h.calls.length = 0;
     const issued = "select max(issued_at_ms) n from co2_intensity where kind = 'forecast'";

@@ -367,12 +367,15 @@ scheduled(event)                     -- the only Cron Trigger: */5 * * * *
     co2Forecast    every 30 min (:00, :30)      (CO2EmisProg, DK1+DK2)
     co2Actual      every 30 min (:15, :45)      (CO2Emis, DK1+DK2)
     tariffs        02:00 local       (DatahubPricelist for mapped GLNs + Energinet codes; mapping check §10.4)
+    cleanup        03:30 local       (deletes spot prices and CO₂ data older than 400 days)
   on success → upsert in D1 batches, ingest_state.last_success_at = now
   on 429     → ingest_state.next_attempt_at = now + retryAfterSeconds   (no retry loop)
   on new day-ahead prices → each running JobWorkflow: instance.sendEvent({ type: 'prices_published' })
 ```
 
 Each task fetches only what it needs (filtered by zone, GLN and code) so parsing stays within the 10 ms CPU budget.
+
+**Retention (decided 2026-10-29):** 400 days of quarter-hour spot prices and CO₂ data — a year of history plus a margin, enough for year-on-year comparisons and Phase 4's savings view. At ~580 spot rows a day the database stays in the tens of MB, far from D1's 500 MB per-database limit. Tariffs are kept: they're small, and the nightly sync re-fetches two years of periods, so deleting them would only cause churn. Change `RETENTION_DAYS` in `apps/api/src/ingest/run.ts`.
 
 D1's free plan allows 100k row writes a day, so ingestion never rewrites what it has: day-ahead prices are fetched only for days still incomplete; CO₂ arrives every 5 minutes but is stored as **15-minute averages** (the slot size pricing and planning use) and only slots whose value changed are written; tariffs are upserted once a night. Verified against the live API on 2026-10-28: 1,152 day-ahead rows (6 zones × 2 days) in one request, 284 CO₂ forecast slots, 286 tariff rows, all 31 supported grid companies healthy, and a repeat tick made no request at all.
 

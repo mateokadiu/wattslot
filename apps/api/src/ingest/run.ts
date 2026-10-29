@@ -175,11 +175,31 @@ const tariffs: Runner = async ({ db, d1, eds, clock }) => {
   };
 };
 
+/**
+ * Days of quarter-hour prices and CO₂ data to keep; older rows are deleted every night. Tariffs
+ * aren't touched: they're small, and the nightly sync would only fetch old periods back.
+ */
+export const RETENTION_DAYS = 400;
+
+const cleanup: Runner = async ({ d1, clock }) => {
+  const beforeMs = clock.nowMs - RETENTION_DAYS * 86_400_000;
+  const [spot, co2] = await d1.batch([
+    d1.prepare('delete from spot_prices where slot_start_ms < ?').bind(beforeMs),
+    d1.prepare('delete from co2_intensity where time_ms < ?').bind(beforeMs),
+  ]);
+  return {
+    before: new Date(beforeMs).toISOString(),
+    spotPrices: spot?.meta.changes ?? 0,
+    co2: co2?.meta.changes ?? 0,
+  };
+};
+
 const RUNNERS: Record<Task, Runner> = {
   day_ahead: dayAhead,
   co2_forecast: co2Runner('forecast'),
   co2_actual: co2Runner('actual'),
   tariffs,
+  cleanup,
 };
 
 /** Entry point for the 5-minute Cron Trigger. Tasks run one after another, one request each. */
