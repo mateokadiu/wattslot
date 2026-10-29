@@ -623,7 +623,7 @@ Lighthouse already scores SEO 100 on every page. That is the floor, not the goal
 - Headings that contain the query ("Elprisen i dag", "Elprisen i morgen").
 - IndexNow ping after each deploy (Bing and others; free).
 
-**S3 — Pages that can rank (~3–5 days; spec 2026-10-29)**
+**S3 — Pages that can rank ✅ done 2026-10-29**
 
 Danish and English only — that's where the full price, and the market, is. The DE/NO/SE home pages already cover their spot prices. Every page has a Danish/English twin, linked both ways by hreflang (`x-default` = English).
 

@@ -13,7 +13,8 @@
         "http://127.0.0.1:8788/da/metode/",
         "http://127.0.0.1:8788/da/netselskaber/",
         "http://127.0.0.1:8788/da/netselskaber/radius-elnet/",
-        "http://127.0.0.1:8788/electricity-price/dk1/"
+        "http://127.0.0.1:8788/electricity-price/dk1/",
+        "http://127.0.0.1:8788/da/guides/tarifmodel-3/"
       ],
       "numberOfRuns": 1,
       "settings": {

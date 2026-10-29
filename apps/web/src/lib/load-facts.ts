@@ -78,6 +78,9 @@ function factsFrom(files: PricesFile[]): FactsDay[] {
   return days;
 }
 
+/** The saved prices for an area (with its largest grid company's tariff where it has one). */
+export const readPrices = (code: string): Prices => readJson<Prices>(`${code}.json`);
+
 const zoneFile = (code: string): PricesFile => ({
   file: `${code}.json`,
   timeZone: FACT_ZONES[code]?.timeZone ?? 'Europe/Copenhagen',

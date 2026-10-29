@@ -1,3 +1,4 @@
+import { GUIDE_KEYS, GUIDE_SLUGS, type GuideKey } from '@/content/guides';
 import { LOCALES, type Locale } from './i18n';
 import { companies } from './load-facts';
 import { absolute } from './site';
@@ -39,6 +40,16 @@ export const companyRoute = (slug: string): Route => ({
   paths: { en: `/grid-companies/${slug}/`, da: `/da/netselskaber/${slug}/` },
 });
 
+export const GUIDES_HUB: Route = {
+  key: 'guides',
+  paths: { en: '/guides/', da: '/da/guides/' },
+};
+
+export const guideRoute = (key: GuideKey): Route => ({
+  key: `guide:${key}`,
+  paths: { en: `/guides/${GUIDE_SLUGS[key].en}/`, da: `/da/guides/${GUIDE_SLUGS[key].da}/` },
+});
+
 /** Every page on the site: the sitemap and the SEO tests read this list. */
 export function allRoutes(): Route[] {
   return [
@@ -47,6 +58,8 @@ export function allRoutes(): Route[] {
     ...AREAS.map(areaRoute),
     COMPANIES_HUB,
     ...companies().map((c) => companyRoute(c.slug)),
+    GUIDES_HUB,
+    ...GUIDE_KEYS.map(guideRoute),
   ];
 }
 

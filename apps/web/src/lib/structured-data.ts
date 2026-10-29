@@ -115,7 +115,7 @@ export function pageGraph({
   description: string;
   modified: string;
   crumbs: Breadcrumb[];
-  type?: 'WebPage' | 'AboutPage' | 'CollectionPage';
+  type?: 'WebPage' | 'AboutPage' | 'CollectionPage' | 'Article';
   extra?: Record<string, unknown>[];
 }) {
   return {
@@ -126,6 +126,9 @@ export function pageGraph({
         '@id': `${url}#page`,
         url,
         name: title,
+        ...(type === 'Article'
+          ? { headline: title, datePublished: '2026-10-29', image: absolute(ogImagePath(locale)) }
+          : {}),
         description,
         inLanguage: locale,
         dateModified: modified,

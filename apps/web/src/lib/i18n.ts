@@ -53,6 +53,9 @@ export const dictionaries = {
       `All-in price per kWh: spot price, grid tariff (${companies}), Energinet’s tariffs, electricity tax and VAT. Your supplier’s markup isn’t included. Pick your own grid company at the top for your exact price.`,
     factsNoteSpot: 'Spot price per kWh, without grid tariffs, taxes or VAT.',
     nav: {
+      prices: 'Prices',
+      companies: 'Grid companies',
+      guides: 'Guides',
       label: 'Site',
       method: 'Method',
       about: 'About',
@@ -160,6 +163,9 @@ export const dictionaries = {
       `Fuld pris pr. kWh: spotpris, nettarif (${companies}), Energinets tariffer, elafgift og moms. Din elleverandørs tillæg er ikke med. Vælg dit eget netselskab øverst for din præcise pris.`,
     factsNoteSpot: 'Spotpris pr. kWh uden nettarif, afgifter og moms.',
     nav: {
+      prices: 'Elpris',
+      companies: 'Netselskaber',
+      guides: 'Guides',
       label: 'Sider',
       method: 'Metode',
       about: 'Om wattslot',
@@ -268,6 +274,9 @@ export const dictionaries = {
       `Endpreis pro kWh: Spotpreis, Netzentgelt (${companies}), Energinet-Tarife, Stromsteuer und MwSt., ohne Aufschlag deines Stromanbieters. Wähle oben deinen Netzbetreiber für deinen genauen Preis.`,
     factsNoteSpot: 'Börsenstrompreis (Spotpreis) pro kWh, ohne Netzentgelte, Steuern und Abgaben.',
     nav: {
+      prices: 'Strompreis',
+      companies: 'Netzbetreiber',
+      guides: 'Ratgeber',
       label: 'Seiten',
       method: 'Methode',
       about: 'Über wattslot',
@@ -380,6 +389,9 @@ export const dictionaries = {
       `Full pris per kWh: spotpris, nettleie (${companies}), Energinets tariffer, elavgift og mva. Strømleverandørens påslag er ikke med. Velg nettselskapet ditt øverst for nøyaktig pris.`,
     factsNoteSpot: 'Spotpris per kWh, uten nettleie, avgifter og mva.',
     nav: {
+      prices: 'Strømpris',
+      companies: 'Nettselskaper',
+      guides: 'Guider',
       label: 'Sider',
       method: 'Metode',
       about: 'Om wattslot',
@@ -488,6 +500,9 @@ export const dictionaries = {
       `Hela priset per kWh: spotpris, nätavgift (${companies}), Energinets avgifter, elskatt och moms. Elhandlarens påslag ingår inte. Välj ditt nätbolag högst upp för exakt pris.`,
     factsNoteSpot: 'Spotpris per kWh, utan nätavgift, skatter och moms.',
     nav: {
+      prices: 'Elpris',
+      companies: 'Nätbolag',
+      guides: 'Guider',
       label: 'Sidor',
       method: 'Metod',
       about: 'Om wattslot',

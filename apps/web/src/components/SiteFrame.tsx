@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { dictionaries, LOCALES, type Locale } from '@/lib/i18n';
-import { PAGES, type Route, twin } from '@/lib/routes';
+import { AREAS, areaRoute, COMPANIES_HUB, GUIDES_HUB, PAGES, type Route, twin } from '@/lib/routes';
 import { REPO_URL as REPO } from '@/lib/site';
 import { jsonLdScript } from '@/lib/structured-data';
 
@@ -69,26 +69,45 @@ export function SiteFrame({
         <p>{t.footer.data}</p>
         <p>{t.footer.markup}</p>
         <p>{t.footer.affiliation}</p>
-        <nav aria-label={t.nav.label} className="pt-2">
-          <a href={page(PAGES.method)} className={link}>
-            {t.nav.method}
-          </a>{' '}
-          ·{' '}
-          <a href={page(PAGES.about)} className={link}>
-            {t.nav.about}
-          </a>{' '}
-          ·{' '}
-          <a href={page(PAGES.privacy)} className={link}>
-            {t.nav.privacy}
-          </a>{' '}
-          ·{' '}
-          <a href={REPO} className={link}>
-            {t.footer.source}
-          </a>{' '}
-          (AGPL-3.0) ·{' '}
-          <a href="/openapi.json" className={link}>
-            {t.footer.api}
-          </a>
+        <nav aria-label={t.nav.label} className="space-y-1 pt-2">
+          <p>
+            {AREAS.map((code) => (
+              <span key={code}>
+                <a href={page(areaRoute(code))} className={link}>
+                  {t.nav.prices} {code.toUpperCase()}
+                </a>{' '}
+                ·{' '}
+              </span>
+            ))}
+            <a href={page(COMPANIES_HUB)} className={link}>
+              {t.nav.companies}
+            </a>{' '}
+            ·{' '}
+            <a href={page(GUIDES_HUB)} className={link}>
+              {t.nav.guides}
+            </a>
+          </p>
+          <p>
+            <a href={page(PAGES.method)} className={link}>
+              {t.nav.method}
+            </a>{' '}
+            ·{' '}
+            <a href={page(PAGES.about)} className={link}>
+              {t.nav.about}
+            </a>{' '}
+            ·{' '}
+            <a href={page(PAGES.privacy)} className={link}>
+              {t.nav.privacy}
+            </a>{' '}
+            ·{' '}
+            <a href={REPO} className={link}>
+              {t.footer.source}
+            </a>{' '}
+            (AGPL-3.0) ·{' '}
+            <a href="/openapi.json" className={link}>
+              {t.footer.api}
+            </a>
+          </p>
         </nav>
       </footer>
     </div>

@@ -103,8 +103,8 @@ export const INFO: Record<InfoKey, { en: InfoContent; da: InfoContent }> = {
           <h2>Coverage</h2>
           <ul>
             <li>
-              31 of Denmark’s 35 grid companies are supported, covering 99.7% of metering points.
-              The others show the spot price only.
+              Tariffs for 31 of Denmark’s 35 grid areas are supported — 28 grid companies, covering
+              99.7% of metering points. The others show the spot price only.
             </li>
             <li>Germany, Norway (NO2) and Sweden (SE3, SE4): spot price only.</li>
           </ul>
@@ -217,8 +217,8 @@ export const INFO: Record<InfoKey, { en: InfoContent; da: InfoContent }> = {
           <h2>Dækning</h2>
           <ul>
             <li>
-              31 af landets 35 netselskaber er med, og de dækker 99,7 % af målepunkterne. For de
-              øvrige vises kun spotprisen.
+              Tarifferne for 31 af landets 35 netområder er med – 28 netselskaber, der dækker 99,7 %
+              af målepunkterne. For de øvrige vises kun spotprisen.
             </li>
             <li>Tyskland, Norge (NO2) og Sverige (SE3, SE4): kun spotpris.</li>
           </ul>
