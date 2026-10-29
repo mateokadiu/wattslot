@@ -3,7 +3,7 @@
 > An open-source planning engine, free to run on Cloudflare, that tells you — or your charger, heat pump or Home Assistant — **when** to use electricity, using the price you actually pay (spot + grid tariff + taxes + VAT) and the grid's CO₂ forecast, at 15-minute resolution.
 
 **Status:** Decisions confirmed 2026-10-28 (§13). Phase 0 done (§15).
-**Research date:** 2026-10-28. Every market number below has a source in §18; anything not verified is marked _(unverified)_.
+**Research date:** 2026-10-28. Every market number below has a source in §19; anything not verified is marked _(unverified)_.
 
 ---
 
@@ -683,7 +683,102 @@ _Deliberately not:_ redirects by browser language (they confuse crawlers).
 
 ---
 
-## 17. Out of scope (explicit)
+## 17. Product structure and roadmap (proposed 2026-10-29)
+
+Research for two new features (outages, public charging) landed on 2026-10-29; this section decides how they fit with what exists, and in what order everything is built.
+
+### 17.1 The main feature
+
+**wattslot answers one question: when should I use electricity, judged by what I actually pay?** The live all-in price, the verdict ("good time" / "wait until 14:00"), and the cheapest time for a task — deepened in Phase 2 into plans and reminders. It is the only part that is genuinely unique (the full price per 15 minutes, resolved per grid company) and the only part people would use daily.
+
+Everything else is a **satellite**: it serves the same household, brings its own search traffic, and leads back to the core.
+
+| Feature                              | Role                  | Why people come                   | Links back to the core by…                     |
+| ------------------------------------ | --------------------- | --------------------------------- | ---------------------------------------------- |
+| Price & timing (home, Phase 2 plans) | **Core**              | Daily: "is now a good time?"      | —                                              |
+| Grid companies, areas, guides (S3)   | Satellite (search)    | "nettarif Radius", "elpris DK2"   | Each shows today's prices with that tariff     |
+| Outages (§17.4)                      | Satellite (spikes)    | "strømafbrud nu" during an outage | Same grid company; "prices when power returns" |
+| Public charging (§17.5)              | Satellite (EV owners) | "billigste lynlader"              | Public price next to tonight's home price      |
+
+### 17.2 Structure
+
+**"My place" is the thread.** Price area and grid company (stored in the browser today; postcode added for outages) personalise every section: your price, your grid company's outages, chargers near you against your home price. No accounts — still browser storage, as the privacy page promises.
+
+**Navigation** (Danish and English; DE/NO/SV keep their home page and link to English for the rest):
+
+| Top navigation | Danish              | English            | What it is                                                           |
+| -------------- | ------------------- | ------------------ | -------------------------------------------------------------------- |
+| Price (home)   | `/da/`              | `/`                | Live view, verdict, planner, today's facts                           |
+| Outages        | `/da/stroemafbrud/` | `/outages/`        | National list and map; your grid company first                       |
+| Charging       | `/da/opladning/`    | `/charging/`       | Public chargers by cost of a reference session, against home tonight |
+| Grid companies | `/da/netselskaber/` | `/grid-companies/` | Existing directory (S3)                                              |
+| Guides         | `/da/guides/`       | `/guides/`         | Existing (S3)                                                        |
+
+Phase 2's plans live inside the home page (the task card becomes "plan it"), not as a separate section. Grid-company pages gain an "outages now" block. On phones the navigation is a scrollable row under the logo.
+
+**Where things run** (all on free plans):
+
+| Piece                                | Runs in                                                                | Why                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Prices, tariffs, CO₂, outages ingest | The existing 5-minute cron Worker                                      | Small JSON; fits 10 ms CPU                                               |
+| Charging ingest                      | A scheduled GitHub Actions job (Node), every 30 min                    | Feeds are megabytes; parsing them in a Worker breaks the 10 ms CPU limit |
+| Charging data for the browser        | Static snapshot files in a public R2 bucket (custom subdomain)         | No Worker requests or CPU per view; R2 free tier: 10 GB, zero egress     |
+| Pages                                | Static export, rebuilt on schedule (S2)                                | Free, fast, crawlable                                                    |
+| Maps                                 | MapLibre GL + OpenFreeMap tiles, lazy-loaded on the two map pages only | No key, no bill; keeps the home page's Lighthouse score                  |
+
+### 17.3 Roadmap
+
+| Step | Scope                                                                                           | Size      | Waits on                                         |
+| ---- | ----------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------ |
+| 0    | Permission emails: Green Power Denmark (outage API), Spirii (reuse terms), Eco-Movement (token) | —         | **Owner sends**                                  |
+| 1    | Navigation + "my place" (postcode field, grid company lookup if GPD's lookup API allows it)     | ~1 day    | —                                                |
+| 2    | Outages v1 (§17.4)                                                                              | ~2–3 days | Launch after GPD replies                         |
+| 3    | Phase 2: plans, Web Push, iCal (§15)                                                            | ~5–7 days | —                                                |
+| 4    | Charging v1 (§17.5)                                                                             | ~4–6 days | Spirii terms; Eco-Movement token widens coverage |
+| 5    | S4 distribution + Phase 3 integrations                                                          | ongoing   | —                                                |
+
+Outages come before Phase 2 because they are small, ride on the existing cron, and every outage is a traffic spike that lands people on the core. If interviews matter more than traffic, swap 2 and 3.
+
+### 17.4 Outages (spec)
+
+_Research 2026-10-29, verified by fetching:_ Danish grid companies report outages into **Green Power Denmark's Informationsportal**, whose public JSON API powers the map widgets on their own sites. `GET https://api.elnet.greenpowerdenmark.dk/api/incidents?showType=2&supplierId=0` returns all current unplanned/announced outages for every company in one response (50 KB, 47 incidents at the time). Coverage: **22 of 32 companies, ~98% of metering points**; the 10 small companies not reporting get "no data — see the company's page" with a link. No Danish site shows this nationally today (Selectra's map is crowd-reported only); Sweden and Norway have unofficial aggregators.
+
+- **Fetch:** `showType=2` every 5 minutes (1 request, ~50 KB), `showType=3` (planned, ~200 KB) hourly. Never `/api/poweroutages` (140 MB) or the 90-day history in the Worker; history stats for grid-company pages are computed in the scheduled build (Node) instead.
+- **Store:** `outages` (GPD id, our GLN via a seeded `outage_suppliers` mapping — N1 alone has several historical supplier ids — type, title, cause, customers, start/end/expected, postcodes, centre + radius, content hash, last seen). Upsert only changed hashes: hundreds of writes a day. The nightly cleanup drops incidents ended over 30 days ago.
+- **Staleness:** incidents without an end time whose expected end is >12 hours past are hidden; everything is labelled indicative. Start/end look like Danish local time while `created` looks UTC — confirm before display.
+- **API:** `GET /v1/outages?gln=|zone=|postcode=`, edge-cached 60 s.
+- **Pages:** national list (server-rendered shell, client refresh) + lazy map; your postcode/company first; per-company block on grid-company pages with 90-day counts from the build.
+- **Attribution:** "Kilde: netselskaberne via Green Power Denmark", link to each company's own outage page.
+- **Risks:** undocumented API that could change or close (mitigation: written permission, a health check that degrades gracefully); reporting completeness varies by company.
+
+### 17.5 Public charging (spec)
+
+_Research 2026-10-29:_ AFIR obliges operators to publish locations, availability and the ad hoc price for free. Since 14 April 2026 Denmark requires **DATEX II**, not OCPI (verified on fstyr.dk). The national access point (Vejdirektoratet's Dataudveksleren) is a **catalogue of per-operator endpoints**, not a central API. Sources:
+
+| Source                                   | Covers                                                                                                                                    | Access                                        | Licence              |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | -------------------- |
+| Spirii (verified open, ~1.2 MB per call) | 21 operators incl. Shell Recharge, EDF, PowerGo (~2,300 sites); many with **15-minute dynamic prices for the next day, published ~13:00** | No auth                                       | Not stated — ask     |
+| Eco-Movement                             | Clever, Circle K, Q8, IONITY, Allego… (~3,900 sites)                                                                                      | Bearer token by email                         | CC BY 4.0 (reported) |
+| Monta                                    | Monta, Norlys, Uno-X, NRGi…                                                                                                               | Client credentials; unclear for non-operators | CC BY 4.0 (reported) |
+| E.ON, OK, Tesla                          | —                                                                                                                                         | Restricted / unclear / none                   | —                    |
+
+Realistic coverage: ~60% of Denmark's ~50,000 public charge points with Spirii + Eco-Movement; E.ON, OK and Tesla missing for now. Existing apps (ChargeFinder, Monta, FDM's manual table) show prices, but **nobody compares public charging with the real all-in home price per 15 minutes** — that is wattslot's angle. An open-source project (zipel/ChargingPrices, MIT, created 2026-10-23, not deployed) has the best notes on the feeds' quirks.
+
+- **Ingest (GitHub Actions, every 30 min):** fetch per operator (Spirii one `cpoId` at a time, `If-Modified-Since`), normalise to a compact per-site record: ad hoc price now incl. VAT, per-minute/start fees, 15-minute curve where published, connector powers. Known quirks: VAT as 0.25 vs 25, EUR prices, Shell listed in two feeds.
+- **One comparable number:** cost of a **reference session** (AC: 20 kWh at 11 kW; DC: 40 kWh at 100 kW) including time and start fees — as BEUC recommends — shown next to the same energy at home tonight.
+- **Publish:** split snapshot files (by region) to R2; the browser fetches them directly. No live availability in v1 (storing it would need millions of writes a day).
+- **Labels:** "ad hoc price (without app/subscription)"; source and licence per operator.
+- **Risks:** data terms (Spirii unstated), token access at the provider's discretion, normalisation edge cases, the 60-day inactivity pause of scheduled GitHub workflows.
+
+### 17.6 Decisions for the owner
+
+1. Confirm the main feature (§17.1) and the order (§17.3: outages before Phase 2).
+2. Send the three permission/token emails (step 0).
+3. Approve creating a free R2 bucket and an R2 API token for the charging ingest (Cloudflare dashboard, done by the owner).
+
+---
+
+## 18. Out of scope (explicit)
 
 - Trading, bidding into flexibility markets, or acting as an independent aggregator (the Danish aggregator model is expected to go live around Q1 2027 — revisit then).
 - Battery arbitrage / solar self-consumption optimisation (EMHASS covers it).
@@ -692,7 +787,7 @@ _Deliberately not:_ redirects by browser language (they confuse crawlers).
 
 ---
 
-## 18. Sources
+## 19. Sources
 
 **Data & APIs**
 - Energi Data Service — DayAheadPrices metadata: https://api.energidataservice.dk/meta/dataset/DayAheadPrices
@@ -732,3 +827,12 @@ _Deliberately not:_ redirects by browser language (they confuse crawlers).
 - OWASP secrets management: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html
 
 Data attribution: Source: Energinet (www.energidataservice.dk), CC BY 4.0.
+
+**Outages and public charging (§17, researched 2026-10-29)**
+- Green Power Denmark outage API: https://api.elnet.greenpowerdenmark.dk/api/incidents?showType=2&supplierId=0 · widgets: https://widget.elnet.danskenergi.dk/ · elnet.dk on API use: https://elnet.dk/nettilslutning/find-netselskab
+- Crowd-reported Danish map: https://selectra.dk/stroemafbrydelse · Swedish/Norwegian aggregators: https://avbrott.se/, https://www.littavalt.no/stromkart/
+- DATEX II required from 14 April 2026: https://www.fstyr.dk/nyheder/2025/dec/afir-operatoerer-skal-sikre-data-tilgaengeliggoerelse-i-det-europaeiske-format-datex-ii-fra-den-14-april-2026
+- Danish national access point: https://du-portal-ui.dataudveksler.app.vd.dk/ · Spirii AFIR docs: https://docs.spirii.com/developers/afir-compliance · Monta AFIR access: https://developer.monta.com/docs/afir-access
+- Finland's open AFIR service (precedent): https://www.digitraffic.fi/en/road-traffic/afir/ · BEUC/T&E on charging price data (July 2026): https://www.beuc.eu/sites/default/files/publications/BEUC-X-2026-073_EV_charging_prices_and_data_report.pdf
+- Charger numbers (FDM, Feb 2026): https://fdm.dk/nyheder/nyt-om-trafik-og-biler/ladestandere-breder-sig-i-lyntempo · FDM price guide: https://fdm.dk/guides/elbil/se-prisen-lade-din-elbil-paa-en-offentlig-ladestander
+- zipel/ChargingPrices (MIT): https://github.com/zipel/ChargingPrices · OpenFreeMap: https://openfreemap.org/ · R2 pricing: https://developers.cloudflare.com/r2/pricing/
