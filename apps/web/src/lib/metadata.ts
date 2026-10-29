@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { dictionaries, LOCALES, type Locale } from './i18n';
-
-/** Absolute base for canonical and language links; set at build time for other hosts. */
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wattslot.mateokadiu.com';
+import { languageAlternates, ogImagePath, SITE_URL } from './site';
 
 export const viewport: Viewport = {
   themeColor: [
@@ -11,21 +9,37 @@ export const viewport: Viewport = {
   ],
 };
 
-const languages = {
-  ...Object.fromEntries(Object.entries(LOCALES).map(([lang, l]) => [lang, l.path])),
-  'x-default': LOCALES.en.path,
-};
-
 export function metadataFor(locale: Locale): Metadata {
   const t = dictionaries[locale];
   const { path, og } = LOCALES[locale];
+  const image = { url: ogImagePath(locale), width: 1200, height: 630, alt: t.tagline };
   return {
     title: t.metaTitle,
-    description: t.lede,
+    description: t.metaDescription,
     metadataBase: new URL(SITE_URL),
     manifest: '/manifest.webmanifest',
-    icons: { icon: '/icon.svg' },
-    alternates: { canonical: path, languages },
-    openGraph: { type: 'website', siteName: 'wattslot', locale: og, url: path },
+    icons: {
+      icon: { url: '/icon.svg', type: 'image/svg+xml' },
+      apple: '/icons/apple-touch-icon.png',
+    },
+    alternates: { canonical: path, languages: languageAlternates() },
+    openGraph: {
+      type: 'website',
+      siteName: 'wattslot',
+      title: t.metaTitle,
+      description: t.metaDescription,
+      locale: og,
+      alternateLocale: Object.values(LOCALES)
+        .map((l) => l.og)
+        .filter((o) => o !== og),
+      url: path,
+      images: [image],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: t.metaTitle,
+      description: t.metaDescription,
+      images: [image],
+    },
   };
 }

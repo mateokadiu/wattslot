@@ -128,6 +128,14 @@ describe('api', () => {
     expect(second.headers.get('x-wattslot-stored-at')).toBeNull();
   });
 
+  it('keeps API responses out of search results, cache hits included', async () => {
+    for (const path of ['/health', '/v1/zones', '/v1/zones', '/openapi.json', '/nope']) {
+      const response = await get(path);
+      expect(response.headers.get('x-robots-tag'), path).toBe('noindex');
+      await response.arrayBuffer();
+    }
+  });
+
   it('returns JSON for unknown routes', async () => {
     const response = await get('/nope');
     expect(response.status).toBe(404);

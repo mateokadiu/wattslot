@@ -605,7 +605,7 @@ Lighthouse already scores SEO 100 on every page. That is the floor, not the goal
 
 ### 16.4 Work packages
 
-**S1 — Technical foundation (~1 day, no new content)**
+**S1 — Technical foundation ✅ done 2026-10-29**
 
 - `sitemap.xml` for every page and language, with hreflang alternates and `lastmod`; `Sitemap:` line in `robots.txt`.
 - `X-Robots-Tag: noindex` on `/v1/*`, `/openapi.json` and `/health`.

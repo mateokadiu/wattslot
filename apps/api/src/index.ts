@@ -12,6 +12,13 @@ import { statusRoutes } from './routes/status.ts';
 
 const app = new OpenAPIHono<AppEnv>();
 
+// Everything the Worker answers is data, not a page: keep it out of search results. (Pages are
+// static assets and never reach this code.) Registered first so it also covers cache hits.
+app.use('*', async (c, next) => {
+  await next();
+  c.header('X-Robots-Tag', 'noindex');
+});
+
 app.get('/health', (c) => c.json({ ok: true }));
 
 app.use('*', secureHeaders());

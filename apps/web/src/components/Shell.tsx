@@ -1,12 +1,17 @@
 import { dictionaries, LOCALES, type Locale } from '@/lib/i18n';
+import { REPO_URL as REPO } from '@/lib/site';
+import { jsonLdScript, structuredData } from '@/lib/structured-data';
 import { Dashboard } from './Dashboard';
-
-const REPO = 'https://github.com/mateokadiu/wattslot';
 
 export function Shell({ locale }: { locale: Locale }) {
   const t = dictionaries[locale];
   return (
     <div className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON-LD built from constants, `<` escaped
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData(locale)) }}
+      />
       <header className="flex items-center justify-between py-6">
         <a href={LOCALES[locale].path} className="font-mono text-base font-semibold tracking-tight">
           watt<span className="text-[var(--accent)]">slot</span>

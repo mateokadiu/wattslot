@@ -1,2 +1,7 @@
 User-agent: *
 Allow: /
+
+# /v1/ stays crawlable on purpose: search engines fetch it while rendering the page, and the
+# API answers with `X-Robots-Tag: noindex` so the JSON itself never shows up in results.
+
+Sitemap: https://wattslot.mateokadiu.com/sitemap.xml

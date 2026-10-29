@@ -29,7 +29,9 @@ const NBSP = ' ';
 
 export const dictionaries = {
   en: {
-    metaTitle: 'wattslot – electricity prices every 15 minutes',
+    metaTitle: 'Electricity price today in Denmark, per 15 min | wattslot',
+    metaDescription:
+      'Live Danish electricity prices per 15 minutes, with grid tariff, taxes and VAT included, and the cheapest time to run the dishwasher or charge your EV.',
     tagline: 'The electricity price you actually pay, every 15 minutes.',
     lede: 'Spot price, your grid company’s tariff, Energinet’s tariffs, electricity tax and VAT — added up per quarter hour, with the cheapest time to run the dishwasher or charge the car.',
     languages: 'Language',
@@ -109,7 +111,9 @@ export const dictionaries = {
     },
   },
   da: {
-    metaTitle: 'wattslot – elpris kvarter for kvarter',
+    metaTitle: 'Elpris i dag inkl. nettarif og afgifter | wattslot',
+    metaDescription:
+      'Elprisen i dag og i morgen, kvarter for kvarter, inkl. nettarif, elafgift og moms – og det billigste tidspunkt til opvask, tøjvask og elbil.',
     tagline: 'Elprisen du faktisk betaler – kvarter for kvarter.',
     lede: 'Spotpris, dit netselskabs nettarif, Energinets tariffer, elafgift og moms – lagt sammen for hvert kvarter, med det billigste tidspunkt at køre opvaskeren eller lade bilen.',
     languages: 'Sprog',
@@ -190,7 +194,9 @@ export const dictionaries = {
     },
   },
   de: {
-    metaTitle: 'wattslot – Strompreise im Viertelstundentakt',
+    metaTitle: 'Börsenstrompreis heute, alle 15 Minuten | wattslot',
+    metaDescription:
+      'Börsenstrompreis für heute und morgen in Viertelstunden, mit der günstigsten Zeit für Spülmaschine, Waschmaschine oder E-Auto. Kostenlos, ohne Anmeldung.',
     tagline: 'Der Strompreis, den du wirklich zahlst – Viertelstunde für Viertelstunde.',
     lede: 'Für Dänemark: Spotpreis, Netzentgelt, Energinet-Tarife, Stromsteuer und Mehrwertsteuer – pro Viertelstunde zusammengerechnet, mit der günstigsten Zeit für Spülmaschine oder E-Auto. Für Deutschland, Norwegen und Schweden vorerst nur der Spotpreis.',
     languages: 'Sprache',
@@ -275,7 +281,9 @@ export const dictionaries = {
     },
   },
   nb: {
-    metaTitle: 'wattslot – strømpris kvarter for kvarter',
+    metaTitle: 'Strømpris i dag – spotpris per kvarter | wattslot',
+    metaDescription:
+      'Spotprisen på strøm i dag og i morgen, kvarter for kvarter, med det billigste tidspunktet for oppvask, klesvask og elbillading. Gratis, uten innlogging.',
     tagline: 'Strømprisen du faktisk betaler – kvarter for kvarter.',
     lede: 'For Danmark: spotpris, nettselskapets nettleie, Energinets tariffer, elavgift og merverdiavgift – lagt sammen for hvert kvarter, med det billigste tidspunktet for oppvaskmaskinen eller elbilen. For Norge, Sverige og Tyskland vises foreløpig bare spotprisen.',
     languages: 'Språk',
@@ -356,7 +364,9 @@ export const dictionaries = {
     },
   },
   sv: {
-    metaTitle: 'wattslot – elpriset kvart för kvart',
+    metaTitle: 'Elpris idag – spotpris per kvart | wattslot',
+    metaDescription:
+      'Elpriset idag och imorgon, kvart för kvart, med den billigaste tiden att diska, tvätta eller ladda elbilen. Gratis och utan inloggning.',
     tagline: 'Elpriset du faktiskt betalar – kvart för kvart.',
     lede: 'För Danmark: spotpris, nätbolagets nätavgift, Energinets avgifter, elskatt och moms – sammanräknat för varje kvart, med den billigaste tiden att köra diskmaskinen eller ladda bilen. För Sverige, Norge och Tyskland visas tills vidare bara spotpriset.',
     languages: 'Språk',
