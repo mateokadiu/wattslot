@@ -58,6 +58,9 @@ describe('format', () => {
   it('formats prices per locale and durations in words', () => {
     expect(price(2.3219, 'en')).toBe('2.32');
     expect(price(2.3219, 'da')).toBe('2,32');
+    expect(price(2.3219, 'de')).toBe('2,32');
+    expect(price(2.3219, 'nb')).toBe('2,32');
+    expect(price(2.3219, 'sv')).toBe('2,32');
     const words = { hour: 'hour', hours: 'hours', min: 'min' };
     expect(duration(2, words)).toBe('2 hours');
     expect(duration(1.5, words)).toBe('1 hour 30 min');

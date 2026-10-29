@@ -17,7 +17,7 @@ The price you pay isn't the spot price. In Denmark it's spot + your grid company
 | [`@wattslot/planner`](./packages/planner)       | Pure functions: cheapest contiguous window and cheapest individual slots, property-tested against brute force.                                                             |
 | [`@wattslot/db`](./packages/db)                 | D1 (SQLite) schema with Drizzle, migrations, and household tariffs for 35 Danish grid companies (31 supported, 99.7% of metering points).                                  |
 | [`@wattslot/api`](./apps/api)                   | Cloudflare Worker: Hono REST API with OpenAPI at `/openapi.json`. AGPL-3.0.                                                                                                |
-| [`@wattslot/web`](./apps/web)                   | The website: a Next.js static export served by the same Worker — price chart, cheapest window, English and Danish. AGPL-3.0.                                               |
+| [`@wattslot/web`](./apps/web)                   | The website: a Next.js static export served by the same Worker — price chart, cheapest window, in English, Danish, German, Norwegian and Swedish. AGPL-3.0.                |
 
 ## Example
 

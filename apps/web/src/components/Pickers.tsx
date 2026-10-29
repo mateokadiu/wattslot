@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { GridCompany, Zone } from '@/lib/api';
-import type { Dictionary, Locale } from '@/lib/i18n';
+import { type Dictionary, LOCALES, type Locale } from '@/lib/i18n';
 
 const trigger =
   'h-11 w-full rounded-lg border-[var(--border)] bg-[var(--card)] px-3.5 text-sm font-normal shadow-none hover:bg-[var(--card)]';
@@ -97,7 +97,7 @@ export function GridCompanyPicker({
 }) {
   const [open, setOpen] = useState(false);
   const selected = companies.find((g) => g.gln === value);
-  const compact = new Intl.NumberFormat(locale === 'da' ? 'da-DK' : 'en-GB', {
+  const compact = new Intl.NumberFormat(LOCALES[locale].intl, {
     notation: 'compact',
     maximumFractionDigits: 1,
   });

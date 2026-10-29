@@ -1,4 +1,4 @@
-import { dictionaries, type Locale } from '@/lib/i18n';
+import { dictionaries, LOCALES, type Locale } from '@/lib/i18n';
 import { Dashboard } from './Dashboard';
 
 const REPO = 'https://github.com/mateokadiu/wattslot';
@@ -8,24 +8,40 @@ export function Shell({ locale }: { locale: Locale }) {
   return (
     <div className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
       <header className="flex items-center justify-between py-6">
-        <a
-          href={locale === 'da' ? '/da/' : '/'}
-          className="font-mono text-base font-semibold tracking-tight"
-        >
+        <a href={LOCALES[locale].path} className="font-mono text-base font-semibold tracking-tight">
           watt<span className="text-[var(--accent)]">slot</span>
         </a>
-        <nav className="flex items-center gap-4 text-sm text-[var(--muted)]">
-          <a
-            href={t.languageHref}
-            hrefLang={locale === 'da' ? 'en' : 'da'}
-            className="hover:text-[var(--foreground)]"
-          >
-            {t.language}
-          </a>
+        <div className="flex items-center gap-4 text-sm text-[var(--muted)]">
+          <nav aria-label={t.languages}>
+            <ul className="flex items-center gap-0.5 font-mono text-xs">
+              {(Object.keys(LOCALES) as Locale[]).map((code) => {
+                const l = LOCALES[code];
+                const current = code === locale;
+                return (
+                  <li key={code}>
+                    <a
+                      href={l.path}
+                      hrefLang={code}
+                      lang={code}
+                      title={l.name}
+                      aria-current={current ? 'page' : undefined}
+                      className={`block rounded px-1.5 py-1 ${
+                        current
+                          ? 'bg-[var(--card)] text-[var(--foreground)]'
+                          : 'hover:text-[var(--foreground)]'
+                      }`}
+                    >
+                      {l.label}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
           <a href={REPO} className="hover:text-[var(--foreground)]">
             GitHub
           </a>
-        </nav>
+        </div>
       </header>
       <main>
         <h1 className="max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">{t.tagline}</h1>

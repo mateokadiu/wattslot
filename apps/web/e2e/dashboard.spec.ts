@@ -119,6 +119,30 @@ test('speaks Danish on /da/', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'Opvaskemaskine' })).toBeVisible();
 });
 
+for (const { path, lang, priciest, dishwasher } of [
+  { path: '/de/', lang: 'de', priciest: 'Am teuersten', dishwasher: 'Spülmaschine' },
+  { path: '/no/', lang: 'nb', priciest: 'Dyrest', dishwasher: 'Oppvaskmaskin' },
+  { path: '/sv/', lang: 'sv', priciest: 'Dyrast', dishwasher: 'Diskmaskin' },
+]) {
+  test(`speaks ${lang} on ${path}`, async ({ page }) => {
+    await open(page, `${path}?zone=DK2&gln=${RADIUS}`);
+    await expect(page.locator('html')).toHaveAttribute('lang', lang);
+    const peak = page.locator('p.label', { hasText: priciest }).locator('..');
+    await expect(peak).toContainText('4,35 DKK/kWh');
+    await expect(page.getByRole('tab', { name: dishwasher })).toBeVisible();
+    await expect(page.locator(`a[hreflang="${lang}"]`)).toHaveAttribute('aria-current', 'page');
+  });
+}
+
+test('links every language from the header', async ({ page }) => {
+  await open(page);
+  const switcher = page.getByRole('navigation', { name: 'Language' });
+  await expect(switcher.getByRole('link')).toHaveText(['EN', 'DA', 'DE', 'NO', 'SV']);
+  await switcher.getByRole('link', { name: 'DE' }).click();
+  await expect(page).toHaveURL(/\/de\//);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'de');
+});
+
 test('has no detectable accessibility problems', async ({ page }) => {
   await open(page);
   // Audit the settled page: mid-fade text is partly transparent and would read as low contrast.

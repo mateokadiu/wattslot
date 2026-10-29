@@ -1,3 +1,5 @@
+import { LOCALES, type Locale } from './i18n';
+
 const timeFormats = new Map<string, Intl.DateTimeFormat>();
 
 /** HH:mm in the price zone's own time zone, whatever the viewer's clock says. */
@@ -16,8 +18,8 @@ export function clock(ms: number, timeZone: string): string {
 }
 
 /** A per-kWh price, two decimals, in the locale's style: 2.32 / 2,32. */
-export function price(value: number, locale: 'en' | 'da'): string {
-  return value.toLocaleString(locale === 'da' ? 'da-DK' : 'en-GB', {
+export function price(value: number, locale: Locale): string {
+  return value.toLocaleString(LOCALES[locale].intl, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -33,6 +35,6 @@ export function duration(hours: number, words: { hour: string; hours: string; mi
 }
 
 /** Energy in kWh with at most one decimal: 1.1, 0.9, 20 (or 1,1 in Danish). */
-export function kwh(value: number, locale: 'en' | 'da'): string {
-  return value.toLocaleString(locale === 'da' ? 'da-DK' : 'en-GB', { maximumFractionDigits: 1 });
+export function kwh(value: number, locale: Locale): string {
+  return value.toLocaleString(LOCALES[locale].intl, { maximumFractionDigits: 1 });
 }

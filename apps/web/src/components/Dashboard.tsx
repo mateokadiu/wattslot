@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { type Co2, type GridCompany, getJson, type Prices, type Zone } from '@/lib/api';
 import type { PriceSlot } from '@/lib/chart';
 import { clock, duration, kwh, price } from '@/lib/format';
-import { type Dictionary, dictionaries, type Locale } from '@/lib/i18n';
+import { type Dictionary, dictionaries, LOCALES, type Locale } from '@/lib/i18n';
 import { planTask, SLOT_MS, slotsFor, TASKS, type Task, verdict } from '@/lib/insights';
 import { type ChartMode, PriceChart } from './PriceChart';
 
@@ -31,8 +31,8 @@ const GridCompanyPicker = dynamic(() => import('./Pickers').then((m) => m.GridCo
   loading: PickerPlaceholder,
 });
 
+// The default price area depends on the page's language; see LOCALES.
 const DEFAULTS = {
-  zone: 'DK2',
   gln: '5790000705689',
   task: 'dishwasher',
   mode: 'level' as ChartMode,
@@ -47,7 +47,7 @@ interface Prefs {
   mode: ChartMode;
 }
 
-function readPrefs(): Prefs {
+function readPrefs(defaultZone: string): Prefs {
   const url = new URLSearchParams(window.location.search);
   let stored: Partial<Prefs> = {};
   try {
@@ -58,7 +58,7 @@ function readPrefs(): Prefs {
   const task = url.get('task') ?? stored.task ?? DEFAULTS.task;
   const mode = url.get('view') ?? stored.mode ?? DEFAULTS.mode;
   return {
-    zone: url.get('zone') ?? stored.zone ?? DEFAULTS.zone,
+    zone: url.get('zone') ?? stored.zone ?? defaultZone,
     gln: url.get('gln') ?? stored.gln ?? DEFAULTS.gln,
     task: TASKS.some((t) => t.id === task) ? task : DEFAULTS.task,
     mode: mode === 'breakdown' ? 'breakdown' : 'level',
@@ -99,6 +99,7 @@ const pct = (fraction: number): string => {
 
 export function Dashboard({ locale }: { locale: Locale }) {
   const t: Dictionary = dictionaries[locale];
+  const defaultZone = LOCALES[locale].zone;
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [companies, setCompanies] = useState<GridCompany[]>([]);
@@ -109,17 +110,17 @@ export function Dashboard({ locale }: { locale: Locale }) {
   const [nowMs, setNowMs] = useState(0);
 
   useEffect(() => {
-    setPrefs(readPrefs());
+    setPrefs(readPrefs(defaultZone));
     setNowMs(Date.now());
     const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
     getJson<{ zones: Zone[] }>('/v1/zones')
       .then((r) => setZones(r.zones))
       .catch(() => setState('error'));
     return () => window.clearInterval(timer);
-  }, []);
+  }, [defaultZone]);
 
   const zone =
-    zones.find((z) => z.code === prefs?.zone) ?? zones.find((z) => z.code === DEFAULTS.zone);
+    zones.find((z) => z.code === prefs?.zone) ?? zones.find((z) => z.code === defaultZone);
   const timeZone = zone?.timeZone ?? 'Europe/Copenhagen';
 
   useEffect(() => {
@@ -265,7 +266,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
         <AreaPicker
           t={t}
           zones={zones}
-          value={prefs?.zone ?? DEFAULTS.zone}
+          value={prefs?.zone ?? defaultZone}
           onChange={(z) => update({ zone: z })}
         />
         <GridCompanyPicker
@@ -334,7 +335,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
         </article>
 
         <article className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 lg:col-span-2">
-          <div role="tablist" aria-label={t.duration} className="grid grid-cols-2 gap-1">
+          <div role="tablist" aria-label={t.taskLabel} className="grid grid-cols-2 gap-1">
             {TASKS.map((x) => (
               <button
                 key={x.id}

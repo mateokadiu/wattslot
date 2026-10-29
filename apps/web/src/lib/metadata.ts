@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { dictionaries, type Locale } from './i18n';
+import { dictionaries, LOCALES, type Locale } from './i18n';
 
 /** Absolute base for canonical and language links; set at build time for other hosts. */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wattslot.mateokadiu.com';
@@ -11,26 +11,21 @@ export const viewport: Viewport = {
   ],
 };
 
+const languages = {
+  ...Object.fromEntries(Object.entries(LOCALES).map(([lang, l]) => [lang, l.path])),
+  'x-default': LOCALES.en.path,
+};
+
 export function metadataFor(locale: Locale): Metadata {
   const t = dictionaries[locale];
+  const { path, og } = LOCALES[locale];
   return {
-    title:
-      locale === 'da'
-        ? 'wattslot – elpris kvarter for kvarter'
-        : 'wattslot – electricity prices every 15 minutes',
+    title: t.metaTitle,
     description: t.lede,
     metadataBase: new URL(SITE_URL),
     manifest: '/manifest.webmanifest',
     icons: { icon: '/icon.svg' },
-    alternates: {
-      canonical: locale === 'da' ? '/da/' : '/',
-      languages: { en: '/', da: '/da/', 'x-default': '/' },
-    },
-    openGraph: {
-      type: 'website',
-      siteName: 'wattslot',
-      locale: locale === 'da' ? 'da_DK' : 'en_GB',
-      url: locale === 'da' ? '/da/' : '/',
-    },
+    alternates: { canonical: path, languages },
+    openGraph: { type: 'website', siteName: 'wattslot', locale: og, url: path },
   };
 }
