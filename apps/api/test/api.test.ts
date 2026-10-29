@@ -120,6 +120,12 @@ describe('api', () => {
     const second = await get('/v1/grid-companies?zone=DK1');
     expect(second.headers.get('x-cache')).toBe('HIT');
     expect(second.headers.get('x-data-source')).toContain('Energinet');
+    // A hit carries the remaining lifetime the API asked for, never a longer one, and no
+    // internal bookkeeping headers.
+    const maxAge = Number(/max-age=(\d+)/.exec(second.headers.get('cache-control') ?? '')?.[1]);
+    expect(maxAge).toBeGreaterThan(0);
+    expect(maxAge).toBeLessThanOrEqual(3600);
+    expect(second.headers.get('x-wattslot-stored-at')).toBeNull();
   });
 
   it('returns JSON for unknown routes', async () => {
