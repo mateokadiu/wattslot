@@ -9,6 +9,7 @@ import { RequestError } from './prices/service.ts';
 import { priceRoutes } from './routes/prices.ts';
 import { referenceRoutes } from './routes/reference.ts';
 import { statusRoutes } from './routes/status.ts';
+import { tariffRoutes } from './routes/tariffs.ts';
 
 const app = new OpenAPIHono<AppEnv>();
 
@@ -33,6 +34,7 @@ app.use('/v1/*', edgeCache);
 app.route('/v1', referenceRoutes);
 app.route('/v1', statusRoutes);
 app.route('/v1', priceRoutes);
+app.route('/v1', tariffRoutes);
 
 app.doc31('/openapi.json', {
   openapi: '3.1.0',

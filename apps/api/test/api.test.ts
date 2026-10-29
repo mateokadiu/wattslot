@@ -142,6 +142,49 @@ describe('api', () => {
     expect(await response.json()).toEqual({ error: 'not_found' });
   });
 
+  it('lists a grid company’s current tariff periods by hour', async () => {
+    // Tarifmodel 3.0 shape in micro-DKK: low 00–06, high 06–17 and 21–24, peak 17–21.
+    const hourly = (low: number, high: number, peak: number) =>
+      JSON.stringify(
+        Array.from({ length: 24 }, (_, h) => (h < 6 ? low : h >= 17 && h < 21 ? peak : high)),
+      );
+    const insert = db.prepare(
+      `insert into charges (owner_gln, charge_code, charge_type, valid_from, valid_to, hourly_micro)
+       values ('5790000705689', 'DT_C_01', 'D03', ?, ?, ?)`,
+    );
+    await db.batch([
+      insert.bind('2020-01-01T00:00:00', '2021-01-01T00:00:00', hourly(1, 2, 3)), // ended
+      insert.bind('2021-01-01T00:00:00', '2099-01-01T00:00:00', hourly(106_180, 318_520, 955_570)),
+      insert.bind('2099-01-01T00:00:00', null, hourly(90_000, 270_000, 810_000)), // upcoming
+    ]);
+    const response = await get('/v1/tariffs?gln=5790000705689');
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      gridCompany: { name: string; zone: string };
+      tariffs: {
+        role: string;
+        periods: { validFrom: string; validTo: string | null; hourly: number[] }[];
+      }[];
+    };
+    expect(body.gridCompany).toMatchObject({ name: 'Radius Elnet A/S', zone: 'DK2' });
+    const periods = body.tariffs.filter((t) => t.role === 'tariff').flatMap((t) => t.periods);
+    expect(periods.map((p) => p.validFrom)).toEqual(['2021-01-01T00:00:00', '2099-01-01T00:00:00']);
+    expect(periods[0]?.hourly.slice(16, 18)).toEqual([0.31852, 0.95557]);
+    for (const period of periods) {
+      expect(period.hourly).toHaveLength(24);
+      // Tarifmodel 3.0: the evening peak costs more than the night.
+      expect(period.hourly[18]).toBeGreaterThan(period.hourly[3] ?? Number.POSITIVE_INFINITY);
+      expect(period.validTo === null || period.validTo > period.validFrom).toBe(true);
+    }
+  });
+
+  it('rejects unknown and malformed grid companies', async () => {
+    expect((await get('/v1/tariffs?gln=5790000000000')).status).toBe(404);
+    const bad = await get('/v1/tariffs?gln=radius');
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toMatchObject({ error: 'invalid_request' });
+  });
+
   it('publishes an OpenAPI 3.1 document', async () => {
     const doc = (await (await get('/openapi.json')).json()) as { openapi: string; paths: object };
     expect(doc.openapi).toBe('3.1.0');
@@ -152,6 +195,7 @@ describe('api', () => {
       '/v1/prices',
       '/v1/co2',
       '/v1/cheapest',
+      '/v1/tariffs',
     ]);
   });
 });
