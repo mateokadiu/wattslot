@@ -588,7 +588,7 @@ Lighthouse already scores SEO 100 on every page. That is the floor, not the goal
 
 ### 16.2 Decisions needed
 
-1. **Domain.** All links and brand value accrue to the hostname. If the site is meant to make money, move to its own domain **before** building links; moving later works (301 redirects) but costs time. On 2026-10-29 `wattslot.dk` and `wattslot.com` returned no whois record (verify at a registrar); `wattslot.eu` is taken. A domain is a yearly fee.
+1. **Domain — decided 2026-10-29: stay on `wattslot.mateokadiu.com`.** A subdomain ranks fine and keeps the product under the author's name. Own domain (`wattslot.com` at Cloudflare, ~$11/yr) stays an option if the site is monetised; moving then means 301 redirects for every URL and a temporary ranking dip.
 2. **Danish first.** Full price — the differentiator — only exists for DK1/DK2. Danish queries come first; the DE/NO/SE pages stay spot-only and low priority, since established players own those searches.
 3. **Analytics.** Cloudflare Web Analytics: free, cookieless, no consent banner.
 4. **Keyword data.** The volumes below are unverified. Validate them with Search Console after launch, or with Ahrefs/Semrush if an account is available.
@@ -654,7 +654,7 @@ Lighthouse already scores SEO 100 on every page. That is the floor, not the goal
 - Energinet data is CC BY 4.0: commercial use is allowed with attribution, which the site already shows (§12.2).
 - A commercial full-price API is an open gap (§2.5: Strømligning's API is non-commercial) — a B2B option alongside search traffic.
 
-**Order:** domain decision → S1 → S2 → S3, with S4 running alongside.
+**Order:** S1 → S2 → S3, with S4 running alongside.
 
 ---
 
