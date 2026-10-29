@@ -10,7 +10,10 @@
         "http://127.0.0.1:8788/de/",
         "http://127.0.0.1:8788/no/",
         "http://127.0.0.1:8788/sv/",
-        "http://127.0.0.1:8788/da/metode/"
+        "http://127.0.0.1:8788/da/metode/",
+        "http://127.0.0.1:8788/da/netselskaber/",
+        "http://127.0.0.1:8788/da/netselskaber/radius-elnet/",
+        "http://127.0.0.1:8788/electricity-price/dk1/"
       ],
       "numberOfRuns": 1,
       "settings": {

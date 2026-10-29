@@ -54,3 +54,28 @@ export function longDate(date: string, locale: Locale): string {
     timeZone: 'UTC',
   }).format(Date.UTC(y, m - 1, d, 12));
 }
+
+/** A DKK-per-kWh price in øre with one decimal, optionally with 25% VAT: 0.10618 → "13,3". */
+export function ore(dkk: number, locale: Locale, withVat: boolean): string {
+  return (dkk * 100 * (withVat ? 1.25 : 1)).toLocaleString(LOCALES[locale].intl, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
+
+/** "1 October 2026" / "1. oktober 2026" for a date or a DataHub wall-clock timestamp. */
+export function calendarDate(date: string, locale: Locale): string {
+  const [y, m, d] = date.slice(0, 10).split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(LOCALES[locale].intl, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(Date.UTC(y, m - 1, d, 12));
+}
+
+/** The last day a period applies, from its exclusive end ("2027-04-01T00:00:00" → 31 March). */
+export function lastDay(validTo: string): string {
+  const [y, m, d] = validTo.slice(0, 10).split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
+}

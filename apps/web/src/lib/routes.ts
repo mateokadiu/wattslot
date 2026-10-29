@@ -1,4 +1,5 @@
 import { LOCALES, type Locale } from './i18n';
+import { companies } from './load-facts';
 import { absolute } from './site';
 
 /** One page, published in one or more languages. */
@@ -21,9 +22,32 @@ export const PAGES = {
   privacy: { key: 'privacy', paths: { en: '/privacy/', da: '/da/privatliv/' } },
 } satisfies Record<string, Route>;
 
+export const AREAS = ['dk1', 'dk2'] as const;
+
+export const areaRoute = (code: string): Route => ({
+  key: `area:${code}`,
+  paths: { en: `/electricity-price/${code}/`, da: `/da/elpris/${code}/` },
+});
+
+export const COMPANIES_HUB: Route = {
+  key: 'companies',
+  paths: { en: '/grid-companies/', da: '/da/netselskaber/' },
+};
+
+export const companyRoute = (slug: string): Route => ({
+  key: `company:${slug}`,
+  paths: { en: `/grid-companies/${slug}/`, da: `/da/netselskaber/${slug}/` },
+});
+
 /** Every page on the site: the sitemap and the SEO tests read this list. */
 export function allRoutes(): Route[] {
-  return [HOME, ...Object.values(PAGES)];
+  return [
+    HOME,
+    ...Object.values(PAGES),
+    ...AREAS.map(areaRoute),
+    COMPANIES_HUB,
+    ...companies().map((c) => companyRoute(c.slug)),
+  ];
 }
 
 export const homeRoute = HOME;

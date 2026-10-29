@@ -1,9 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { Prices } from './api';
+import type { GridCompany, Prices } from './api';
+import { type Company, groupCompanies } from './companies';
 import { FACT_ZONES, FACTS_BY_LOCALE } from './fact-zones';
 import { type DayFacts, dayFacts, nextDate } from './facts';
 import type { Locale } from './i18n';
+import { type TariffPeriod, type TariffsBody, tariffPeriods } from './tariffs';
 
 // Build time only: reads the prices saved by scripts/fetch-prices.ts (or recorded ones).
 
@@ -41,36 +43,64 @@ function readJson<T>(file: string): T {
 
 export const buildPrices = (): BuildPrices => readJson<BuildPrices>('meta.json');
 
-/** Today and, once published, tomorrow, for the areas this language's page shows. */
-export function factsFor(locale: Locale): FactsDay[] {
+interface PricesFile {
+  file: string;
+  timeZone: string;
+}
+
+/** Today and, once published, tomorrow, from saved price files (one column each). */
+function factsFrom(files: PricesFile[]): FactsDay[] {
   const { date } = buildPrices();
-  const zones = (FACTS_BY_LOCALE[locale] ?? []).map((code) => ({
-    config: FACT_ZONES[code] ?? { zone: code, timeZone: 'Europe/Copenhagen' },
-    prices: readJson<Prices>(`${code}.json`),
-  }));
+  const sources = files.map(({ file, timeZone }) => ({ timeZone, prices: readJson<Prices>(file) }));
   const days: FactsDay[] = [];
   for (const [kind, day] of [
     ['today', date],
     ['tomorrow', nextDate(date)],
   ] as const) {
-    const facts = zones.flatMap(({ config, prices }) => {
+    const zones = sources.flatMap(({ timeZone, prices }) => {
       const quarters = prices.slots.map((s) => ({ startMs: Date.parse(s.start), total: s.total }));
-      const f = dayFacts(quarters, day, config.timeZone);
-      return f
+      const facts = dayFacts(quarters, day, timeZone);
+      return facts
         ? [
             {
-              zone: config.zone,
+              zone: prices.zone,
               company: prices.gridCompany?.name ?? null,
               currency: prices.currency,
               mode: prices.mode,
-              facts: f,
+              facts,
             },
           ]
         : [];
     });
-    // A day is shown only when every area has it.
-    if (facts.length === zones.length && facts.length > 0)
-      days.push({ date: day, kind, zones: facts });
+    // A day is shown only when every column has it.
+    if (zones.length === sources.length && zones.length > 0) days.push({ date: day, kind, zones });
   }
   return days;
 }
+
+const zoneFile = (code: string): PricesFile => ({
+  file: `${code}.json`,
+  timeZone: FACT_ZONES[code]?.timeZone ?? 'Europe/Copenhagen',
+});
+
+/** The areas this language's home page shows. */
+export const factsFor = (locale: Locale): FactsDay[] =>
+  factsFrom((FACTS_BY_LOCALE[locale] ?? []).map(zoneFile));
+
+/** One price area, with its largest grid company's tariff. */
+export const areaFacts = (code: string): FactsDay[] => factsFrom([zoneFile(code)]);
+
+/** All-in prices with one grid company's tariff. */
+export const companyFacts = (gln: string): FactsDay[] =>
+  factsFrom([{ file: `company-${gln}.json`, timeZone: 'Europe/Copenhagen' }]);
+
+export const gridCompanyList = (): GridCompany[] =>
+  readJson<{ gridCompanies: GridCompany[] }>('grid-companies.json').gridCompanies;
+
+/** Supported grid companies, one per company, largest first. */
+export const companies = (): Company[] => groupCompanies(gridCompanyList());
+
+export const companyTariffs = (gln: string): TariffsBody =>
+  readJson<TariffsBody>(`tariffs-${gln}.json`);
+
+export const companyPeriods = (gln: string): TariffPeriod[] => tariffPeriods(companyTariffs(gln));
