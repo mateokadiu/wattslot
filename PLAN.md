@@ -615,10 +615,10 @@ Lighthouse already scores SEO 100 on every page. That is the floor, not the goal
 - `apple-touch-icon` and PNG manifest icons.
 - CI guards: Playwright checks title and description lengths, a single canonical, reciprocal hreflang, valid JSON-LD and a sitemap entry for every page; Lighthouse CI asserts SEO 100 and performance ≥ 95 on every language.
 
-**S2 — Prices in the HTML (~1–2 days)**
+**S2 — Prices in the HTML ✅ done 2026-10-29**
 
 - Pre-render the day's facts into each page: cheapest two hours, min / max / average, and an hourly `<table>` per area, for today and (after ~13:00) tomorrow. The page still hydrates to the live view.
-- Mechanism: a scheduled GitHub Action rebuilds and deploys at ~00:05 and ~13:20 Copenhagen time, reading the production API at build time. The HTML stays a free static asset. _Considered:_ rewriting HTML at the edge (`HTMLRewriter`) — always fresh, but every page view becomes a Worker request against the 100k/day free quota.
+- Mechanism: the deploy workflow also runs on a schedule (~00:05, and ~13:25 with a retry an hour later, Copenhagen time). Before `next build`, `scripts/fetch-prices.ts` saves today's and tomorrow's prices from the production API; CI builds from recorded prices instead (`WATTSLOT_PRICES_DIR`). A scheduled run only deploys a commit whose ci passed. If a rebuild is missed, the headings switch from "today" to the date on the client, so an old page never calls yesterday "today". The HTML stays a free static asset. _Considered:_ rewriting HTML at the edge (`HTMLRewriter`) — always fresh, but every page view becomes a Worker request against the 100k/day free quota.
 - "Opdateret" timestamp in `<time>`, `dateModified` in JSON-LD.
 - Headings that contain the query ("Elprisen i dag", "Elprisen i morgen").
 - IndexNow ping after each deploy (Bing and others; free).

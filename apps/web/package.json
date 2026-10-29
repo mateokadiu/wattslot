@@ -5,12 +5,13 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3000",
-    "build": "next build",
+    "dev": "node scripts/fetch-prices.ts && next dev --port 3000",
+    "build": "node scripts/fetch-prices.ts && next build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "e2e": "playwright test",
-    "lighthouse": "lhci autorun"
+    "lighthouse": "lhci autorun",
+    "build:fixtures": "WATTSLOT_PRICES_DIR=e2e/fixtures/prices next build"
   },
   "dependencies": {
     "@wattslot/planner": "workspace:*",

@@ -15,6 +15,15 @@ const config = readFileSync(`${API}wrangler.jsonc`, 'utf8');
 const databaseId = /"database_id":\s*"([^"]+)"/.exec(config)?.[1];
 if (!databaseId) throw new Error('database_id not found in wrangler.jsonc');
 
+// The tests expect pages built from the recorded prices (28 Oct 2026), not today's.
+const page = readFileSync(fileURLToPath(new URL('../out/index.html', import.meta.url)), 'utf8');
+if (!/datetime="2026-10-28"/i.test(page)) {
+  console.error(
+    'out/ was built with live prices. Run `pnpm --filter @wattslot/web build:fixtures` first.',
+  );
+  process.exit(1);
+}
+
 rmSync(STATE, { recursive: true, force: true });
 const env = { ...process.env, CI: 'true', WRANGLER_SEND_METRICS: 'false' };
 const migrate = spawnSync(

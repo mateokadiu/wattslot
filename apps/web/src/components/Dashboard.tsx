@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import { type Co2, type GridCompany, getJson, type Prices, type Zone } from '@/lib/api';
 import type { PriceSlot } from '@/lib/chart';
-import { clock, duration, kwh, price } from '@/lib/format';
+import { clock, duration, kwh, perKwh, price } from '@/lib/format';
 import { type Dictionary, dictionaries, LOCALES, type Locale } from '@/lib/i18n';
 import { planTask, SLOT_MS, slotsFor, TASKS, type Task, verdict } from '@/lib/insights';
 import { type ChartMode, PriceChart } from './PriceChart';
@@ -211,8 +211,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
     };
   }, [prices, co2, nowMs, day, timeZone, task]);
 
-  const unit =
-    prices?.currency === 'DKK' && locale === 'da' ? 'kr./kWh' : `${prices?.currency ?? 'DKK'}/kWh`;
+  const unit = perKwh(prices?.currency ?? 'DKK', locale);
   const money = (value: number) =>
     prices?.currency === 'DKK'
       ? t.money(price(value, locale))

@@ -65,6 +65,7 @@ for (const { path, lang } of PAGES) {
       'Dataset',
       'Person',
       'WebApplication',
+      'WebPage',
       'WebSite',
     ]);
     expect(nodes.find((n) => n['@type'] === 'WebApplication')?.url).toBe(`${SITE}${path}`);
@@ -104,4 +105,37 @@ test('every icon the manifest and pages point at exists', async ({ page, request
 test('API responses stay out of search results', async ({ request }) => {
   const response = await request.get('/v1/zones');
   expect(response.headers()['x-robots-tag']).toBe('noindex');
+});
+
+test.describe('prices in the HTML', () => {
+  // Built from the recorded day (see e2e/fixtures/prices): 28 Oct 2026, with the 29th published.
+
+  test('crawlers get the day’s prices without running JavaScript', async ({ request }) => {
+    const html = await (await request.get('/da/')).text();
+    expect(html).toContain('Elprisen i dag');
+    expect(html).toContain('Elprisen i morgen');
+    expect(html).toContain('Billigste 2 timer: kl. 00:00–02:00, i gennemsnit 1,70 kr./kWh.');
+    expect(html).toContain('Dyreste time: kl. 18:00–19:00, 4,21 kr./kWh.');
+    expect(html).toMatch(/datetime="2026-10-28"/i);
+  });
+
+  test('shows an hour-by-hour table for both price areas', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-10-28T11:00:00Z'));
+    await page.goto('/');
+    const tables = page.getByRole('table', { name: /Average price per hour/ });
+    await expect(tables).toHaveCount(2);
+    const today = tables.first();
+    await expect(today.getByRole('columnheader')).toHaveText(['Time', 'DK1', 'DK2']);
+    await expect(today.getByRole('rowheader')).toHaveCount(24);
+    await expect(today.getByRole('row', { name: /^18:00–19:00/ })).toContainText('4.21');
+  });
+
+  test('never calls an old day “today” when a rebuild was missed', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-10-29T11:00:00Z'));
+    await page.goto('/da/');
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText([
+      'Elprisen onsdag 28. oktober',
+      'Elprisen i dag',
+    ]);
+  });
 });

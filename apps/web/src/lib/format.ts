@@ -38,3 +38,19 @@ export function duration(hours: number, words: { hour: string; hours: string; mi
 export function kwh(value: number, locale: Locale): string {
   return value.toLocaleString(LOCALES[locale].intl, { maximumFractionDigits: 1 });
 }
+
+/** Unit for a per-kWh price: "kr./kWh" on Danish pages, otherwise "DKK/kWh", "EUR/kWh". */
+export function perKwh(currency: string, locale: Locale): string {
+  return currency === 'DKK' && locale === 'da' ? 'kr./kWh' : `${currency}/kWh`;
+}
+
+/** "Thursday 29 October" / "torsdag den 29. oktober" for a YYYY-MM-DD date. */
+export function longDate(date: string, locale: Locale): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(LOCALES[locale].intl, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(Date.UTC(y, m - 1, d, 12));
+}

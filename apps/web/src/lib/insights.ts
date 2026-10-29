@@ -18,7 +18,9 @@ function quantile(sorted: readonly number[], q: number): number {
  * Cheap, normal or expensive by thirds of the given slots' all-in prices. A flat day is all
  * normal — nothing is cheap if nothing is cheaper.
  */
-export function priceLevels(slots: readonly PriceSlot[]): Map<number, Level> {
+export function priceLevels(
+  slots: readonly Pick<PriceSlot, 'startMs' | 'total'>[],
+): Map<number, Level> {
   const sorted = slots.map((s) => s.total).sort((a, b) => a - b);
   const low = quantile(sorted, 1 / 3);
   const high = quantile(sorted, 2 / 3);

@@ -8,7 +8,7 @@ const DATASET_ID = absolute('/#prices');
  * schema.org graph for a language's page: the site, the app on this page, the price data it
  * publishes, and its author (the same Person node as on mateokadiu.com).
  */
-export function structuredData(locale: Locale) {
+export function structuredData(locale: Locale, modified: string) {
   const t = dictionaries[locale];
   const url = pageUrl(locale);
   return {
@@ -21,6 +21,18 @@ export function structuredData(locale: Locale) {
         name: 'wattslot',
         inLanguage: Object.keys(LOCALES),
         publisher: { '@id': AUTHOR.id },
+      },
+      {
+        '@type': 'WebPage',
+        '@id': `${url}#page`,
+        url,
+        name: t.metaTitle,
+        description: t.metaDescription,
+        inLanguage: locale,
+        dateModified: modified,
+        isPartOf: { '@id': WEBSITE_ID },
+        mainEntity: { '@id': `${url}#app` },
+        primaryImageOfPage: absolute(ogImagePath(locale)),
       },
       {
         '@type': 'WebApplication',
@@ -64,6 +76,7 @@ export function structuredData(locale: Locale) {
         creator: { '@id': AUTHOR.id },
         spatialCoverage: { '@type': 'Place', name: 'Denmark' },
         temporalCoverage: '2026-10-28/..',
+        dateModified: modified,
         variableMeasured: 'Electricity price per kWh including tariffs, taxes and VAT (DKK)',
         distribution: {
           '@type': 'DataDownload',

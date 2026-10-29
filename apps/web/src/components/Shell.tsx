@@ -1,16 +1,19 @@
 import { dictionaries, LOCALES, type Locale } from '@/lib/i18n';
+import { buildPrices, factsFor } from '@/lib/load-facts';
 import { REPO_URL as REPO } from '@/lib/site';
 import { jsonLdScript, structuredData } from '@/lib/structured-data';
 import { Dashboard } from './Dashboard';
+import { DayFacts } from './DayFacts';
 
 export function Shell({ locale }: { locale: Locale }) {
   const t = dictionaries[locale];
+  const { generatedAt } = buildPrices();
   return (
     <div className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON-LD built from constants, `<` escaped
-        dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData(locale)) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData(locale, generatedAt)) }}
       />
       <header className="flex items-center justify-between py-6">
         <a href={LOCALES[locale].path} className="font-mono text-base font-semibold tracking-tight">
@@ -56,6 +59,7 @@ export function Shell({ locale }: { locale: Locale }) {
         <div className="mt-8">
           <Dashboard locale={locale} />
         </div>
+        <DayFacts locale={locale} days={factsFor(locale)} generatedAt={generatedAt} />
       </main>
       <footer className="mt-12 space-y-1 border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)]">
         <p>{t.footer.data}</p>

@@ -12,6 +12,7 @@
       "!**/node_modules",
       "!**/dist",
       "!fixtures",
+      "!apps/web/e2e/fixtures",
       "!packages/db/migrations",
       "!packages/db/seed",
       "!**/pnpm-lock.yaml"

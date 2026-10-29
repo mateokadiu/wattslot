@@ -28,6 +28,9 @@ jobs:
       - run: pnpm test
       - name: Build the website
         run: pnpm build
+        env:
+          # Recorded prices for 28 Oct 2026, so tests and screenshots don't depend on the day.
+          WATTSLOT_PRICES_DIR: e2e/fixtures/prices
       - name: Install Chromium for end-to-end tests
         run: pnpm --filter @wattslot/web exec playwright install --with-deps chromium
       - name: End-to-end tests

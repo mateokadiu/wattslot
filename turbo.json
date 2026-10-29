@@ -5,6 +5,11 @@
     "test": {},
     "build": {
       "outputs": ["out/**", ".next/**", "!.next/cache/**"]
+    },
+    "@wattslot/web#build": {
+      "outputs": ["out/**", ".next/**", "!.next/cache/**"],
+      "cache": false,
+      "passThroughEnv": ["WATTSLOT_PRICES_DIR", "WATTSLOT_API", "NEXT_PUBLIC_SITE_URL"]
     }
   }
 }

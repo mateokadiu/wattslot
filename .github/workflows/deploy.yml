@@ -1,15 +1,23 @@
 name: deploy
 
-# Deploys main to Cloudflare after ci has passed for that commit.
+# Deploys main to Cloudflare after ci has passed for that commit, and rebuilds on a schedule so
+# the pages carry the day's prices in their HTML (see PLAN.md §16, S2).
 on:
   workflow_run:
     workflows: [ci]
     types: [completed]
     branches: [main]
+  schedule:
+    # Copenhagen time, written in UTC: each pair covers summer (UTC+2) and winter (UTC+1).
+    # Just after midnight, when "tomorrow" becomes "today".
+    - cron: "5 22,23 * * *"
+    # After tomorrow's prices are published (~13:00), with a later retry if they're late.
+    - cron: "25 11,12,13 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: deploy
@@ -17,7 +25,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -32,6 +40,17 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Check that ci passed for this commit
+        if: steps.credentials.outputs.ready == 'true' && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=$(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" \
+            --status success --json databaseId -q 'length')
+          if [ "$passed" = "0" ]; then
+            echo "::error::ci hasn't passed for $GITHUB_SHA, so the scheduled rebuild won't deploy it."
+            exit 1
           fi
       - uses: actions/checkout@v7
         if: steps.credentials.outputs.ready == 'true'
@@ -55,3 +74,14 @@ jobs:
       - name: Deploy the Worker
         if: steps.credentials.outputs.ready == 'true'
         run: pnpm --filter @wattslot/api exec wrangler deploy
+      - name: Tell search engines the pages changed (IndexNow)
+        if: steps.credentials.outputs.ready == 'true'
+        env:
+          # Public by design: search engines verify it at /<key>.txt.
+          INDEXNOW_KEY: b69d1fdefbbf1b97ffbeb17b63388850
+        run: |
+          site=https://wattslot.mateokadiu.com
+          curl -sS -o /dev/null -w 'IndexNow: HTTP %{http_code}\n' -X POST https://api.indexnow.org/indexnow \
+            -H 'content-type: application/json; charset=utf-8' \
+            -d "{\"host\":\"wattslot.mateokadiu.com\",\"key\":\"$INDEXNOW_KEY\",\"keyLocation\":\"$site/$INDEXNOW_KEY.txt\",\"urlList\":[\"$site/\",\"$site/da/\",\"$site/de/\",\"$site/no/\",\"$site/sv/\"]}" \
+            || echo "::warning::IndexNow ping failed; search engines will still find the changes via the sitemap."
