@@ -12,9 +12,27 @@ export interface OutageCompany {
   phone: string;
   /** The company's own outage page, where we found one; null otherwise. */
   page: string | null;
+  /**
+   * Whether the company reports outages to the portal. On 2026-10-31, ten small companies had
+   * no incidents there in 90 days; their pages point people to the company instead.
+   */
+  reports: boolean;
 }
 
-export const OUTAGE_COMPANIES: OutageCompany[] = [
+const SILENT = new Set([
+  '5790001095277', // Elinord
+  '5790001088217', // Veksel
+  '5790000682102', // Ikast El Net
+  '5790001095239', // Kimbrer
+  '5790001095376', // Hjerting
+  '5790001103460', // Læsø
+  '5790001095444', // Sunds Net
+  '5790000706419', // Tarm Elværk Net
+  '5790001095451', // Aal El-Net
+  '5790000610839', // Hurup
+]);
+
+const COMPANIES: Omit<OutageCompany, 'reports'>[] = [
   {
     gln: '5790000705689', // Radius Elnet
     supplierIds: [4, 65],
@@ -143,6 +161,30 @@ export const OUTAGE_COMPANIES: OutageCompany[] = [
   { gln: '5790001095451', supplierIds: [73], phone: '+45 40 25 34 09', page: null }, // Aal El-Net
   { gln: '5790000610839', supplierIds: [86], phone: '+45 97 95 15 22', page: null }, // Hurup
 ];
+
+export const OUTAGE_COMPANIES: OutageCompany[] = COMPANIES.map((c) => ({
+  ...c,
+  reports: !SILENT.has(c.gln),
+}));
+
+/** Companies' smaller grid areas share the main area's fault line and outage reports. */
+const AREA_ALIASES: Record<string, string> = {
+  '5790000611003': '5790001089030', // N1 344 → N1 131
+  '5790002502699': '5790001089030', // N1 016 → N1 131
+  '5790000683345': '5790000704842', // Konstant 245 → Konstant 151
+};
+
+const BY_GLN = new Map<string, OutageCompany>(OUTAGE_COMPANIES.map((c) => [c.gln, c]));
+for (const [alias, main] of Object.entries(AREA_ALIASES)) {
+  const company = BY_GLN.get(main);
+  if (company) BY_GLN.set(alias, company);
+}
+
+/** The GLN outages are filed under for a grid company, given any of its grid areas' GLNs. */
+export const mainGln = (gln: string): string => AREA_ALIASES[gln] ?? gln;
+
+/** Fault line, outage page and reporting for a grid company (by any of its listed GLNs). */
+export const outageInfo = (gln: string): OutageCompany | null => BY_GLN.get(gln) ?? null;
 
 const BY_SUPPLIER = new Map(
   OUTAGE_COMPANIES.flatMap((c) => c.supplierIds.map((id) => [id, c.gln] as const)),

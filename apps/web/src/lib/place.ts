@@ -18,6 +18,8 @@ export interface StoredPrefs {
   name?: string | null;
   /** True once the visitor picked the area or company themselves (not a default or a shared link). */
   chosen?: boolean;
+  /** Postcode for the outage overview. */
+  postcode?: string | null;
 }
 
 export interface Place {
@@ -64,6 +66,24 @@ const snapshot = (): string | null => {
     return null;
   }
 };
+
+/** Remember (or forget, with null) the postcode used on the outage page. */
+export function setPostcode(postcode: string | null): void {
+  writePrefs({ ...readPrefs(), postcode });
+}
+
+/** The saved postcode, or null (also during server rendering). */
+export function usePostcode(): string | null {
+  const raw = useSyncExternalStore(subscribe, snapshot, () => null);
+  return useMemo(() => {
+    try {
+      const code = raw ? (JSON.parse(raw) as StoredPrefs).postcode : null;
+      return code && /^\d{4}$/.test(code) ? code : null;
+    } catch {
+      return null;
+    }
+  }, [raw]);
+}
 
 /** The chosen place, or null (also during server rendering and before the visitor chooses). */
 export function usePlace(): Place | null {

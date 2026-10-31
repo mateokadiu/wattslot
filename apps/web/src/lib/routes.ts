@@ -30,6 +30,11 @@ export const areaRoute = (code: string): Route => ({
   paths: { en: `/electricity-price/${code}/`, da: `/da/elpris/${code}/` },
 });
 
+export const OUTAGES: Route = {
+  key: 'outages',
+  paths: { en: '/outages/', da: '/da/stroemafbrud/' },
+};
+
 export const COMPANIES_HUB: Route = {
   key: 'companies',
   paths: { en: '/grid-companies/', da: '/da/netselskaber/' },
@@ -56,6 +61,7 @@ export function allRoutes(): Route[] {
     HOME,
     ...Object.values(PAGES),
     ...AREAS.map(areaRoute),
+    OUTAGES,
     COMPANIES_HUB,
     ...companies().map((c) => companyRoute(c.slug)),
     GUIDES_HUB,

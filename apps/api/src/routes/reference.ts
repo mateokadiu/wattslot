@@ -3,6 +3,7 @@ import { schema } from '@wattslot/db';
 import { asc, desc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import type { AppEnv } from '../env.ts';
+import { outageInfo } from '../outages/suppliers.ts';
 
 const Zone = z
   .object({
@@ -28,8 +29,22 @@ const GridCompany = z
         'False when the household tariff is not yet understood; prices fall back to spot.',
     }),
     note: z.string().nullable(),
+    outages: z
+      .object({
+        reports: z.boolean().openapi({
+          description: 'Reports outages to the shared portal behind GET /v1/outages',
+        }),
+        phone: z.string().openapi({ example: '+45 70 20 58 00', description: 'Fault line' }),
+        page: z.string().nullable().openapi({ description: "The company's own outage page" }),
+      })
+      .nullable(),
   })
   .openapi('GridCompany');
+
+const outageSummary = (gln: string) => {
+  const info = outageInfo(gln);
+  return info ? { reports: info.reports, phone: info.phone, page: info.page } : null;
+};
 
 const zonesRoute = createRoute({
   method: 'get',
@@ -103,6 +118,7 @@ export const referenceRoutes = new OpenAPIHono<AppEnv>()
             (g.degradedAtMs === null
               ? null
               : `Tariff data has been out of date since ${new Date(g.degradedAtMs).toISOString().slice(0, 10)}; prices fall back to spot.`),
+          outages: outageSummary(g.gln),
         })),
       },
       200,

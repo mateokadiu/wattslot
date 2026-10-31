@@ -10,11 +10,12 @@ import {
   gridCompanyList,
 } from '@/lib/load-facts';
 import { pageMetadata } from '@/lib/metadata';
-import { areaRoute, COMPANIES_HUB, companyRoute } from '@/lib/routes';
+import { areaRoute, COMPANIES_HUB, companyRoute, OUTAGES } from '@/lib/routes';
 import { absolute } from '@/lib/site';
 import { pageGraph } from '@/lib/structured-data';
 import { type TariffPeriod, tariffShape } from '@/lib/tariffs';
 import { Breadcrumbs } from './Breadcrumbs';
+import { CompanyOutages } from './CompanyOutages';
 import { DayFacts } from './DayFacts';
 import { SetPlaceButton } from './SetPlaceButton';
 import { SiteFrame } from './SiteFrame';
@@ -80,6 +81,7 @@ export function CompanyPage({ slug, locale }: { slug: string; locale: L }) {
   const others = company.areas.slice(1);
   const differing = others.filter((a) => !same(upcoming(companyPeriods(a.gln)), periods));
   const codes = company.areas.map((a) => a.code).filter(Boolean);
+  const outageInfo = gridCompanyList().find((g) => g.gln === gln)?.outages;
   const chargeCodes = companyTariffs(gln)
     .tariffs.map((c) => c.chargeCode)
     .join(', ');
@@ -151,6 +153,17 @@ export function CompanyPage({ slug, locale }: { slug: string; locale: L }) {
               : d.otherAreas(differing.map((a) => a.code).join(', '))}
           </p>
         )}
+      </div>
+      <div className="prose mt-8 max-w-3xl">
+        <CompanyOutages
+          locale={locale}
+          name={company.name}
+          gln={gln}
+          phone={outageInfo?.phone ?? null}
+          page={outageInfo?.page ?? null}
+          reports={outageInfo?.reports ?? false}
+          outagesHref={OUTAGES.paths[locale] ?? '/'}
+        />
       </div>
       <DayFacts locale={locale} days={companyFacts(gln)} generatedAt={generatedAt} />
       <div className="prose mt-8 max-w-3xl text-sm">

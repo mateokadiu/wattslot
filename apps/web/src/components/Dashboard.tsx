@@ -80,8 +80,11 @@ function savePrefs(prefs: Prefs) {
   window.history.replaceState(null, '', url);
   const stored = readStoredPrefs();
   // Looking at a shared link doesn't overwrite the place you chose.
+  // Merge, so what other pages saved (the outage page's postcode) survives.
   writePrefs(
-    prefs.chosen || !stored.chosen ? prefs : { ...stored, task: prefs.task, mode: prefs.mode },
+    prefs.chosen || !stored.chosen
+      ? { ...stored, ...prefs }
+      : { ...stored, task: prefs.task, mode: prefs.mode },
   );
 }
 

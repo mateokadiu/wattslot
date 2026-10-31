@@ -3,6 +3,7 @@ import { schema } from '@wattslot/db';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { OUTAGE_SOURCE } from '../outages/feed.ts';
+import { mainGln } from '../outages/suppliers.ts';
 import { ErrorBody, router } from '../router.ts';
 
 const HOUR = 3_600_000;
@@ -104,7 +105,7 @@ export const outageRoutes = router().openapi(outagesRoute, async (c) => {
       and(
         isNull(o.goneMs),
         list === 'all' ? undefined : eq(o.list, list),
-        gln ? inArray(o.gln, gln.split(',')) : undefined,
+        gln ? inArray(o.gln, [...new Set(gln.split(',').map(mainGln))]) : undefined,
         postcode
           ? sql`exists (select 1 from json_each(${o.postcodes}) where value = ${postcode})`
           : undefined,
@@ -130,14 +131,16 @@ export const outageRoutes = router().openapi(outagesRoute, async (c) => {
     .sort((a, b) => {
       if (a.r.list !== b.r.list) return a.r.list === 'active' ? -1 : 1;
       if (a.r.list === 'planned') return (a.r.startMs ?? 0) - (b.r.startMs ?? 0);
-      const restored =
-        Number(a.r.endMs !== null && a.r.endMs <= now) -
-        Number(b.r.endMs !== null && b.r.endMs <= now);
-      return (
-        restored ||
-        KIND_ORDER[a.r.kind] - KIND_ORDER[b.r.kind] ||
-        (b.r.startMs ?? 0) - (a.r.startMs ?? 0)
-      );
+      // Happening now (most serious first, newest first), then announced for later (soonest
+      // first), then restored (most recently first).
+      const group = (r: typeof a.r) =>
+        r.endMs !== null && r.endMs <= now ? 2 : (r.startMs ?? 0) > now ? 1 : 0;
+      const ga = group(a.r);
+      const gb = group(b.r);
+      if (ga !== gb) return ga - gb;
+      if (ga === 1) return (a.r.startMs ?? 0) - (b.r.startMs ?? 0);
+      if (ga === 2) return (b.r.endMs ?? 0) - (a.r.endMs ?? 0);
+      return KIND_ORDER[a.r.kind] - KIND_ORDER[b.r.kind] || (b.r.startMs ?? 0) - (a.r.startMs ?? 0);
     });
 
   return c.json(

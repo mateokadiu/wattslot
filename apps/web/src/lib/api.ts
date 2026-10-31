@@ -15,6 +15,34 @@ export interface GridCompany {
   meteringPoints: number | null;
   supported: boolean;
   note: string | null;
+  /** Fault line and outage page; `reports` is false for companies not on the shared portal. */
+  outages?: { reports: boolean; phone: string; page: string | null } | null;
+}
+
+export type OutageKind = 'unplanned' | 'announced' | 'planned' | 'notice';
+
+export interface Outage {
+  id: number;
+  list: 'active' | 'planned';
+  kind: OutageKind;
+  title: string;
+  cause: string | null;
+  customers: number | null;
+  start: string | null;
+  end: string | null;
+  expectedEnd: string | null;
+  restored: boolean;
+  postcodes: string[];
+  gridCompany: { gln: string; name: string } | null;
+  supplierName: string;
+}
+
+export interface Outages {
+  enabled: boolean;
+  updatedAt: string | null;
+  stale: boolean;
+  source: string;
+  outages: Outage[];
 }
 
 export interface ApiPriceSlot {

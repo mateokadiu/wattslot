@@ -1,6 +1,15 @@
 import type { ReactNode } from 'react';
 import { dictionaries, LOCALES, type Locale } from '@/lib/i18n';
-import { AREAS, areaRoute, COMPANIES_HUB, GUIDES_HUB, PAGES, type Route, twin } from '@/lib/routes';
+import {
+  AREAS,
+  areaRoute,
+  COMPANIES_HUB,
+  GUIDES_HUB,
+  OUTAGES,
+  PAGES,
+  type Route,
+  twin,
+} from '@/lib/routes';
 import { REPO_URL as REPO } from '@/lib/site';
 import { jsonLdScript } from '@/lib/structured-data';
 import { PlaceChip } from './PlaceChip';
@@ -10,6 +19,7 @@ const link = 'underline hover:text-[var(--foreground)]';
 /** Which top-level section a page belongs to, for highlighting it in the navigation. */
 function sectionOf(route: Route): string | null {
   if (route.key === 'home' || route.key.startsWith('area:')) return 'prices';
+  if (route.key === 'outages') return 'outages';
   if (route.key === 'companies' || route.key.startsWith('company:')) return 'companies';
   if (route.key === 'guides' || route.key.startsWith('guide:')) return 'guides';
   return null;
@@ -32,6 +42,7 @@ export function SiteFrame({
   const page = (r: Route) => r.paths[locale] ?? r.paths.en ?? '/';
   const sections = [
     { key: 'prices', label: t.nav.prices, href: LOCALES[locale].path },
+    { key: 'outages', label: t.nav.outages, href: page(OUTAGES) },
     { key: 'companies', label: t.nav.companies, href: page(COMPANIES_HUB) },
     { key: 'guides', label: t.nav.guides, href: page(GUIDES_HUB) },
   ];

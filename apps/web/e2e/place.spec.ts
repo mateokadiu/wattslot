@@ -18,6 +18,7 @@ test.describe('navigation', () => {
   for (const { path, current } of [
     { path: '/', current: 'Prices' },
     { path: '/electricity-price/dk1/', current: 'Prices' },
+    { path: '/outages/', current: 'Outages' },
     { path: '/grid-companies/', current: 'Grid companies' },
     { path: '/grid-companies/radius-elnet/', current: 'Grid companies' },
     { path: '/guides/tarifmodel-3/', current: 'Guides' },
@@ -25,7 +26,12 @@ test.describe('navigation', () => {
     test(`marks ${current} as the current section on ${path}`, async ({ page }) => {
       await visit(page, path);
       const sections = page.getByRole('navigation', { name: 'Sections' });
-      await expect(sections.getByRole('link')).toHaveText(['Prices', 'Grid companies', 'Guides']);
+      await expect(sections.getByRole('link')).toHaveText([
+        'Prices',
+        'Outages',
+        'Grid companies',
+        'Guides',
+      ]);
       await expect(sections.getByRole('link', { name: current })).toHaveAttribute(
         'aria-current',
         'page',
@@ -36,7 +42,12 @@ test.describe('navigation', () => {
   test('speaks the page’s language and leads to its own sections', async ({ page }) => {
     await visit(page, '/da/om/');
     const sections = page.getByRole('navigation', { name: 'Sektioner' });
-    await expect(sections.getByRole('link')).toHaveText(['Elpris', 'Netselskaber', 'Guides']);
+    await expect(sections.getByRole('link')).toHaveText([
+      'Elpris',
+      'Strømafbrud',
+      'Netselskaber',
+      'Guides',
+    ]);
     await expect(sections.getByRole('link', { name: 'Netselskaber' })).toHaveAttribute(
       'href',
       '/da/netselskaber/',

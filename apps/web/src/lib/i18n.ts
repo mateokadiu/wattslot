@@ -53,6 +53,7 @@ export const dictionaries = {
       `All-in price per kWh: spot price, grid tariff (${companies}), Energinet’s tariffs, electricity tax and VAT. Your supplier’s markup isn’t included. Pick your own grid company at the top for your exact price.`,
     factsNoteSpot: 'Spot price per kWh, without grid tariffs, taxes or VAT.',
     nav: {
+      outages: 'Outages',
       prices: 'Prices',
       companies: 'Grid companies',
       guides: 'Guides',
@@ -63,6 +64,7 @@ export const dictionaries = {
       breadcrumb: 'Breadcrumb',
     },
     place: {
+      outage: ' – power outage now',
       label: (name: string) => `Your grid company: ${name}`,
       area: (zone: string) => `Your price area: ${zone}`,
       set: 'This is my grid company',
@@ -171,6 +173,7 @@ export const dictionaries = {
       `Fuld pris pr. kWh: spotpris, nettarif (${companies}), Energinets tariffer, elafgift og moms. Din elleverandørs tillæg er ikke med. Vælg dit eget netselskab øverst for din præcise pris.`,
     factsNoteSpot: 'Spotpris pr. kWh uden nettarif, afgifter og moms.',
     nav: {
+      outages: 'Strømafbrud',
       prices: 'Elpris',
       companies: 'Netselskaber',
       guides: 'Guides',
@@ -181,6 +184,7 @@ export const dictionaries = {
       breadcrumb: 'Brødkrummesti',
     },
     place: {
+      outage: ' – strømafbrud lige nu',
       label: (name: string) => `Dit netselskab: ${name}`,
       area: (zone: string) => `Dit prisområde: ${zone}`,
       set: 'Det er mit netselskab',
@@ -290,6 +294,7 @@ export const dictionaries = {
       `Endpreis pro kWh: Spotpreis, Netzentgelt (${companies}), Energinet-Tarife, Stromsteuer und MwSt., ohne Aufschlag deines Stromanbieters. Wähle oben deinen Netzbetreiber für deinen genauen Preis.`,
     factsNoteSpot: 'Börsenstrompreis (Spotpreis) pro kWh, ohne Netzentgelte, Steuern und Abgaben.',
     nav: {
+      outages: 'Stromausfälle',
       prices: 'Strompreis',
       companies: 'Netzbetreiber',
       guides: 'Ratgeber',
@@ -300,6 +305,7 @@ export const dictionaries = {
       breadcrumb: 'Brotkrümelnavigation',
     },
     place: {
+      outage: ' – Stromausfall',
       label: (name: string) => `Dein Netzbetreiber: ${name}`,
       area: (zone: string) => `Deine Preiszone: ${zone}`,
       set: 'Das ist mein Netzbetreiber',
@@ -413,6 +419,7 @@ export const dictionaries = {
       `Full pris per kWh: spotpris, nettleie (${companies}), Energinets tariffer, elavgift og mva. Strømleverandørens påslag er ikke med. Velg nettselskapet ditt øverst for nøyaktig pris.`,
     factsNoteSpot: 'Spotpris per kWh, uten nettleie, avgifter og mva.',
     nav: {
+      outages: 'Strømbrudd',
       prices: 'Strømpris',
       companies: 'Nettselskaper',
       guides: 'Guider',
@@ -423,6 +430,7 @@ export const dictionaries = {
       breadcrumb: 'Brødsmulesti',
     },
     place: {
+      outage: ' – strømbrudd nå',
       label: (name: string) => `Ditt nettselskap: ${name}`,
       area: (zone: string) => `Ditt prisområde: ${zone}`,
       set: 'Dette er mitt nettselskap',
@@ -532,6 +540,7 @@ export const dictionaries = {
       `Hela priset per kWh: spotpris, nätavgift (${companies}), Energinets avgifter, elskatt och moms. Elhandlarens påslag ingår inte. Välj ditt nätbolag högst upp för exakt pris.`,
     factsNoteSpot: 'Spotpris per kWh, utan nätavgift, skatter och moms.',
     nav: {
+      outages: 'Strömavbrott',
       prices: 'Elpris',
       companies: 'Nätbolag',
       guides: 'Guider',
@@ -542,6 +551,7 @@ export const dictionaries = {
       breadcrumb: 'Brödsmulor',
     },
     place: {
+      outage: ' – strömavbrott nu',
       label: (name: string) => `Ditt nätbolag: ${name}`,
       area: (zone: string) => `Ditt elområde: ${zone}`,
       set: 'Det här är mitt nätbolag',

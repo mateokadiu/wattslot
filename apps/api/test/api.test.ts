@@ -93,6 +93,18 @@ describe('api', () => {
     expect(sizes).toEqual([...sizes].sort((a, b) => b - a));
   });
 
+  it('gives each grid company its fault line and outage page', async () => {
+    const { gridCompanies } = (await (await get('/v1/grid-companies?zone=DK2')).json()) as {
+      gridCompanies: (GridCompany & { outages: { reports: boolean; phone: string } | null })[];
+    };
+    expect(gridCompanies[0]?.outages).toEqual({
+      reports: true,
+      phone: '+45 70 20 58 00',
+      page: 'https://radiuselnet.dk/stroemafbrydelse/',
+    });
+    expect(gridCompanies.every((g) => g.outages !== null)).toBe(true);
+  });
+
   it('explains why a grid company is not supported yet', async () => {
     const { gridCompanies } = (await (await get('/v1/grid-companies')).json()) as {
       gridCompanies: GridCompany[];

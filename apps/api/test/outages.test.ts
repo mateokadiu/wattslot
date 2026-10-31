@@ -58,6 +58,19 @@ const ACTIVE = [
   }),
   incident({ id: 4, endDate: wall(-5 * HOUR) }), // restored long ago: hidden
   incident({ id: 5, startDate: wall(-3 * 24 * HOUR), expectedDowntime: wall(-2 * 24 * HOUR) }), // stale
+  // Announced for later: listed after what's happening now, soonest first.
+  incident({
+    id: 7,
+    incidentTypeId: 2,
+    startDate: wall(5 * 24 * HOUR),
+    expectedDowntime: wall(5 * 24 * HOUR + 3 * HOUR),
+  }),
+  incident({
+    id: 8,
+    incidentTypeId: 2,
+    startDate: wall(2 * 24 * HOUR),
+    expectedDowntime: wall(2 * 24 * HOUR + 3 * HOUR),
+  }),
   incident({
     id: 6,
     incidentTypeId: 4,
@@ -156,6 +169,12 @@ describe('outage supplier mapping', () => {
     expect(new Set(OUTAGE_COMPANIES.map((c) => c.gln)).size).toBe(OUTAGE_COMPANIES.length);
   });
 
+  it('covers every grid company we list, smaller grid areas included', async () => {
+    const { outageInfo } = await import('../src/outages/suppliers.ts');
+    for (const gln of known) expect(outageInfo(gln), gln).not.toBeNull();
+    expect(outageInfo('5790000611003')?.gln).toBe(N1); // N1's area 344 → N1
+  });
+
   it('has a phone number for every company and only https outage pages', () => {
     for (const c of OUTAGE_COMPANIES) {
       expect(c.phone).toMatch(/^\+45( \d\d){4}$/);
@@ -180,11 +199,11 @@ describe('outages end to end', () => {
     await h?.dispose();
   });
 
-  it('lists current outages, most serious first, restored ones last', async () => {
+  it('lists outages happening now first, then announced ones, restored ones last', async () => {
     const body = await get('/v1/outages');
     expect(body.enabled).toBe(true);
     expect(body.source).toContain('Green Power Denmark');
-    expect(ids(body)).toEqual([1, 2, 6, 3]);
+    expect(ids(body)).toEqual([1, 2, 6, 8, 7, 3]);
     const first = body.outages[0];
     expect(first?.gridCompany).toEqual({ gln: RADIUS, name: 'Radius Elnet A/S' });
     expect(first?.location).toEqual({ lat: 55.7, lng: 12.57, radiusM: 313 });
@@ -202,13 +221,15 @@ describe('outages end to end', () => {
 
   it('shows planned work for the next 30 days only', async () => {
     expect(ids(await get('/v1/outages?list=planned'))).toEqual([10]);
-    expect(ids(await get('/v1/outages?list=all'))).toEqual([1, 2, 6, 3, 10]);
+    expect(ids(await get('/v1/outages?list=all'))).toEqual([1, 2, 6, 8, 7, 3, 10]);
   });
 
   it('filters by postcode and grid company', async () => {
-    expect(ids(await get('/v1/outages?postcode=2100'))).toEqual([1]);
+    expect(ids(await get('/v1/outages?postcode=2100'))).toEqual([1, 8, 7]);
     expect(ids(await get(`/v1/outages?gln=${N1}`))).toEqual([2]);
-    expect(ids(await get(`/v1/outages?gln=${N1},${RADIUS}`))).toEqual([1, 2]);
+    expect(ids(await get(`/v1/outages?gln=${N1},${RADIUS}`))).toEqual([1, 2, 8, 7]);
+    // Any of N1's grid areas finds its outages.
+    expect(ids(await get('/v1/outages?gln=5790002502699'))).toEqual([2]);
     expect((await h.get('/v1/outages?postcode=21')).status).toBe(400);
   });
 
