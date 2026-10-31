@@ -270,20 +270,21 @@ Source of truth: [`packages/db/src/schema.ts`](./packages/db/src/schema.ts). Con
 | IDs              | `text` UUIDs                                                                  |                             |
 | Secrets          | `blob` ciphertext + wrapped data key + associated-data string                 |                             |
 
-| Table                         | Purpose                                                                                                                                                                                 |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `price_zones`                 | DK1, DK2 (full price); DE, SE3, … (spot-only)                                                                                                                                           |
-| `grid_companies`              | GLN, name, zone, metering points (≈ customers), `supported`/`unsupported` with a reason, `degraded_at` set by the nightly mapping check                                                 |
-| `tariff_mappings`             | Grid company → the charge codes of its household tariff: one or more `tariff` codes (e.g. a main and a regional tariff) plus optional `discount` codes that count as zero once they end |
-| `spot_prices`                 | Zone × 15-min slot → price (micro-units per kWh)                                                                                                                                        |
-| `co2_intensity`               | Zone × 5-min → g/kWh, `forecast` or `actual`                                                                                                                                            |
-| `charges`                     | DataHub charges: grid tariffs, Energinet tariffs, electricity tax (`EA-001`)                                                                                                            |
-| `vat_rates`                   | The only tax DataHub doesn't publish                                                                                                                                                    |
-| `ingest_state`                | Per dataset: last success, next allowed attempt (429 back-off), last error                                                                                                              |
-| `sites`                       | Zone, grid company (never an address), supplier markup, CO₂ shadow price, hashed feed token                                                                                             |
-| `jobs`, `plans`, `plan_slots` | Phase 2 — jobs, versioned plans and their slots                                                                                                                                         |
-| `integrations`, `deliveries`  | Phase 3 — encrypted credentials, idempotent outbound actions                                                                                                                            |
-| `meter_readings`              | Phase 4 — Eloverblik data, deploy-your-own only                                                                                                                                         |
+| Table                          | Purpose                                                                                                                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `price_zones`                  | DK1, DK2 (full price); DE, SE3, … (spot-only)                                                                                                                                           |
+| `grid_companies`               | GLN, name, zone, metering points (≈ customers), `supported`/`unsupported` with a reason, `degraded_at` set by the nightly mapping check                                                 |
+| `tariff_mappings`              | Grid company → the charge codes of its household tariff: one or more `tariff` codes (e.g. a main and a regional tariff) plus optional `discount` codes that count as zero once they end |
+| `spot_prices`                  | Zone × 15-min slot → price (micro-units per kWh)                                                                                                                                        |
+| `co2_intensity`                | Zone × 5-min → g/kWh, `forecast` or `actual`                                                                                                                                            |
+| `charges`                      | DataHub charges: grid tariffs, Energinet tariffs, electricity tax (`EA-001`)                                                                                                            |
+| `vat_rates`                    | The only tax DataHub doesn't publish                                                                                                                                                    |
+| `ingest_state`                 | Per dataset: last success, next allowed attempt (429 back-off), last error                                                                                                              |
+| `sites`                        | Zone, grid company (never an address), supplier markup, CO₂ shadow price, hashed feed token                                                                                             |
+| `jobs`, `plans`, `plan_slots`  | Phase 2 — jobs, versioned plans and their slots                                                                                                                                         |
+| `owners`, `push_subscriptions` | Phase 2 — anonymous owner tokens (hashed) and encrypted Web Push subscriptions; see §17.7                                                                                               |
+| `integrations`, `deliveries`   | Phase 3 — encrypted credentials, idempotent outbound actions                                                                                                                            |
+| `meter_readings`               | Phase 4 — Eloverblik data, deploy-your-own only                                                                                                                                         |
 
 ---
 
@@ -431,6 +432,8 @@ All public GETs send CORS headers (any origin, no credentials), security headers
 
 ### 10.2 Authenticated
 
+_Phase 2's concrete endpoints and the owner-token model are in §17.7; the list below is the original sketch._
+
 ```
 POST   /v1/sites                     GET/PATCH/DELETE /v1/sites/:id
 POST   /v1/sites/:id/feed-token/rotate
@@ -527,6 +530,8 @@ All twelve confirmed as recommended.
 | 11  | Hosting                  | **Cloudflare free plan**: Workers, D1, Workflows, one Cron Trigger; the website is a static export served by the same Worker. _Changed from Oracle Always Free on 2026-10-28: no card, no server, no idle-reclamation risk._ | Oracle Always Free ARM; home machine + Cloudflare Tunnel; Hetzner (~€4–5/month)                                                                                               |
 | 12  | Phase 4 device order     | **Eloverblik → Easee → Expo**                                                                                                                                                                                                | Easee first                                                                                                                                                                   |
 
+_2026-10-31: decision 2 is up for change with Phase 2 — anonymous, browser-bound plans on the public site too (§17.7, P2-1)._
+
 ---
 
 ## 14. Project structure
@@ -562,7 +567,7 @@ wattslot/
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **0 — Foundations** ✅ 2026-10-28                      | Monorepo (pnpm, Turborepo, Biome, CI), Drizzle schema + migration, `eds-client` with recorded fixtures, `pricing` package                                                              | Done: worked example reproduced to the øre (1.66 / 4.35); property tests for breakdown, monotonicity, local-hour tariffs and day tiling over 40 years; DST days priced at 92/100 slots; missing or overlapping charges throw; migration applied to Postgres 16 with constraint checks (schema ported to D1 when hosting moved to Cloudflare) |
 | **1 — Live prices** ✅ live at wattslot.mateokadiu.com | D1 + reference data and tariff mappings, `apps/api` Worker (one cron for ingestion, public price/CO₂/cheapest API), `apps/web` Next.js page with stacked 15-min chart, deploy pipeline | Live on Cloudflare; tomorrow's prices appear within 10 min of publication; no unrecovered 429s in a week; every handler under the 10 ms CPU limit; public page Lighthouse ≥ 95                                                                                                                                                               |
-| **2 — Jobs & plans**                                   | `planner` package, jobs API, `JobWorkflow` (sleep to boundaries, `waitForEvent` re-plans, cancel), 3-option preview, Web Push, iCal                                                    | Property tests: plan never leaves the window, delivers exactly E kWh, greedy = brute force for n ≤ 12, contiguous plans are contiguous; e2e (local `wrangler dev`): create job → provisional plan → prices land → plan v2 → notifications at slot boundaries                                                                                 |
+| **2 — Jobs & plans**                                   | _Detailed spec: §17.7._ `planner` package, jobs API, `JobWorkflow` (sleep to boundaries, `waitForEvent` re-plans, cancel), 3-option preview, Web Push, iCal                            | Property tests: plan never leaves the window, delivers exactly E kWh, greedy = brute force for n ≤ 12, contiguous plans are contiguous; e2e (local `wrangler dev`): create job → provisional plan → prices land → plan v2 → notifications at slot boundaries                                                                                 |
 | **3 — Integrations**                                   | evcc tariff feed (+ plan push when reachable), Home Assistant feed, signed webhooks, feed-token rotation, envelope encryption                                                          | evcc instance in CI (Docker) consumes the feed and shows the same cheapest window; HA test instance reads the feed sensors                                                                                                                                                                                                                   |
 | **4 — Proof & reach**                                  | Eloverblik verified savings, Easee direct, Expo app, ENTSO-E fallback, provisional-price estimator evaluation                                                                          | Savings page shows planned vs actual cost from meter data; estimator error reported (MAE) on 3 months of history                                                                                                                                                                                                                             |
 | **5 — Hardening**                                      | Multi-user mode, quotas, backups (D1 Time Travel + nightly `wrangler d1 export`), observability (Workers Logs + analytics), tariff-mapping alerts                                      | Restore from an export tested; tariff mapping check alerts on a simulated code change                                                                                                                                                                                                                                                        |
@@ -789,10 +794,127 @@ Realistic coverage: ~60% of Denmark's ~50,000 public charge points with Spirii +
 - **Labels:** "ad hoc price (without app/subscription)"; source and licence per operator.
 - **Risks:** data terms (Spirii unstated), token access at the provider's discretion, normalisation edge cases, the 60-day inactivity pause of scheduled GitHub workflows.
 
+### 17.7 Phase 2 — plans, notifications and calendar (spec 2026-10-31)
+
+Roadmap step 3. Turns "the cheapest time is 02:45" into **a plan that tells you when to act**: you say what to run and by when, wattslot picks the slots, re-plans when tomorrow's prices land, and tells you at the right moment — by push notification or in your calendar. Everything stays free to run and free to use, with no accounts.
+
+#### Decisions for the owner
+
+| #    | Decision                           | Recommended                                                                                                                                         | Why / alternative                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P2-1 | Who owns a plan on the public site | **An anonymous, browser-bound owner token** — no account, no email                                                                                  | Changes decision 2 (§13: the public site was read-only). Alternative: plans only in deploy-your-own, which leaves the live site without the main feature.                                                                                                                                                                                                                                                                                                |
+| P2-2 | Execution engine                   | **Cloudflare Workflows, one instance per plan** (decision 3)                                                                                        | Free plan, verified 2026-10-31: 10 ms CPU **per step**, 50 subrequests **per instance**, 1,024 steps per instance, 100 concurrent instances — and waiting or sleeping instances don't count toward that. The cron alternative shares 10 ms and 50 subrequests per 5-minute run across _every_ notification, so a busy boundary (many plans starting at 00:00) would overflow it. Miniflare 4 runs Workflows locally, so the whole lifecycle is testable. |
+| P2-3 | Retention                          | **Plans deleted 7 days after they end; an owner (and everything it holds) after 90 days without a visit; a "delete everything" button**             | Data minimisation — the privacy page gets a "plans and notifications" section before launch.                                                                                                                                                                                                                                                                                                                                                             |
+| P2-4 | Secrets                            | **Two Workers Secrets — `VAPID_PRIVATE_KEY` and `PUSH_KEK` — set by the owner with `wrangler secret put`** (CLI, values never printed or committed) | Needed to sign pushes and to encrypt subscription keys at rest (§12.1).                                                                                                                                                                                                                                                                                                                                                                                  |
+
+#### What a visitor can do
+
+1. **Plan it.** The task card's "Plan" button opens a short form, pre-filled from the task: dishwasher, washing machine or dryer (energy and run time from the live view's defaults, "done by" defaulting to 07:00), or EV (kWh, 7.4 / 11 kW, plugged in from, ready by, "may pause" on). The window can reach as far as published prices plus estimates allow (≤ 48 h).
+2. **Choose one of three options** — cheapest, balanced, greenest (§8.3, λ = 0 / 1.0 / CO₂ first) — each with its runs, cost, CO₂ and the saving against the two baselines (§8.5). Before ~13:00, slots past today are **estimated** and the plan is marked provisional (§8.4).
+3. **Get told.** "Notify me" asks for notification permission and subscribes this device; "Add to calendar" downloads a single `.ics` event (made in the browser — no token needed) or subscribes to a calendar feed that follows every plan.
+4. **See and cancel** plans under "My plans" on the home page: status (planned, provisional, running, done), next action, cost, and "changed" when a re-plan moved it.
+5. **Delete everything** from the same place.
+
+On iPhone, web push works only for a site added to the Home Screen (iOS 16.4+); the form says so and offers the calendar instead.
+
+#### Identity: the owner token
+
+- `POST /v1/owners` returns a 256-bit random **owner token** (write access; kept in this browser's storage) and a separate **feed token** (read-only, for the calendar). Only SHA-256 hashes are stored. Requests send `Authorization: Bearer <owner token>`.
+- No recovery and no cross-device sync in v1 — losing the token loses the plans, by design. The privacy page says so.
+- The owner record keeps the language (for notification text) and a last-seen time for retention.
+
+#### Engine: `JobWorkflow`
+
+A thin wrapper around pure, separately tested functions (`buildPlan`, `nextAction`, `notify`), so the same logic runs in tests without the Workflows runtime:
+
+```
+run({ jobId }, step)
+  plan = step.do('plan 1', () => buildAndStorePlan(jobId, 'created'))   -- returns runs, cost, version; never secrets
+  step.do('notify planned 1', () => notify(jobId, plan, 'planned'))
+  loop
+    next = nextAction(plan, now)            -- the next run start or stop still in the future; none → done
+    try
+      evt = step.waitForEvent(`wait ${plan.version} ${next.at}`, { type: 'replan', timeout: until(next.at) })
+      plan = step.do(`replan ${plan.version + 1}`, () => replan(jobId, evt.reason))   -- never moves a run that has started
+      if the start or end moved: step.do(`notify changed ${plan.version}`, …)
+    catch timeout
+      step.do(`act ${next.action} ${next.at}`, () => notify(jobId, plan, next.action))
+  step.do('finish', () => markDone(jobId))
+```
+
+- **Re-planning:** when the day-ahead task completes tomorrow's prices, the cron flags every live job with a provisional plan (`replan_requested_ms`); each tick sends events to at most 40 flagged jobs (subrequest budget) and clears the flag. A re-plan is kept only if it saves ≥ 1% and ≥ 0.05 kr., so small changes don't produce notification noise. CO₂ forecast updates don't trigger re-plans in v1.
+- **Cancel:** `DELETE /v1/jobs/:id` terminates the instance and marks the job cancelled (the calendar feed then shows the event as cancelled).
+- **Steps per job:** an overnight EV plan with two runs and one re-plan is ~10 steps (limit 1,024). Step names are deterministic per iteration, so a retried step never repeats a notification; `deliveries.idempotency_key` (unique) guards each send as well.
+
+#### Planner additions (`packages/planner`)
+
+- **Energy-exact selection:** the last slot of an interruptible plan is partly filled, so a plan delivers exactly E kWh (today's `cheapestSlots` picks whole slots).
+- **Runs:** consecutive selected slots merge into runs (`[{ start, end, kWh }]`) — what notifications and calendar events describe.
+- **Scores:** `allIn + λ × CO₂/1000` (§8.3). Slots without a CO₂ forecast use the last 7 days' average for that local hour, marked estimated.
+- **Provisional spot estimate (§8.4):** median of the same weekday and slot over the last 4 weeks; until 4 weeks of history exist, the last 7 days' median for that slot.
+- Property tests (§15 definition of done): a plan never leaves its window, delivers exactly E kWh, equals brute force for n ≤ 12, contiguous plans are one run, and re-planning never moves a started run.
+- The heat-pump minimum-run DP (§8.2) moves to Phase 3 with the integrations that need it.
+
+#### Notifications: Web Push from the Worker
+
+- **Own implementation in `packages/webpush` (Apache-2.0)** on Web Crypto: VAPID (RFC 8292) ES256 JWT and `aes128gcm` payload encryption (RFC 8291/8188), verified against the RFC 8291 Appendix A test vector. No Node-only library.
+- **Payload:** one JSON format that works both as Safari's Declarative Web Push (iOS/macOS 18.4+, `"web_push": 8030`) and for a small service worker (`/sw.js`: `push` and `notificationclick` only, no offline caching) on other browsers. Title, body, a link back to the plan, a tag per job so a newer message replaces an older one, TTL until the action is stale, and high urgency for "start now".
+- **Messages** (owner's language), e.g. _planned_ — "Opvaskemaskine: start kl. 02:45, færdig 04:45 · 2,75 kr. (0,35 kr. billigere end nu)"; _changed_ — "Ny plan: start kl. 03:00 i stedet for 02:45 — morgendagens priser er kommet"; _start_ — "Start opvaskemaskinen nu"; for interruptible plans _stop_ — "Stop opladningen nu — næste opladning kl. 04:15".
+- **Failures:** 404/410 deletes the subscription at once; other errors retry through the step's retries; five consecutive failures delete it.
+- **Cost:** one push is a few signatures and an encryption — to be measured in `workerd` during the spike; one step sends to at most 3 devices.
+
+#### Calendar
+
+- `GET /v1/feeds/{feed token}/plans.ics` — one event per run of every live or recent plan: stable `UID` per job and run, `SEQUENCE` = plan version, `STATUS:CANCELLED` for cancelled plans, a display alarm at the start. `Cache-Control` 5 minutes.
+- Calendar apps refresh subscriptions on their own schedule (Google can take hours), so the UI recommends notifications for exact times and the feed for planning ahead. Rotating the feed token (`POST /v1/feeds/rotate`) invalidates the old URL.
+
+#### API
+
+```
+POST   /v1/owners                         → { ownerToken, feedUrl }          (rate-limited)
+DELETE /v1/owners/me                      → deletes the owner and everything it holds
+POST   /v1/plan-preview                   → the three options; no auth, nothing stored
+POST   /v1/jobs                           → creates the job and its workflow; returns plan 1
+GET    /v1/jobs                           → live and recent jobs with their current plan
+GET    /v1/jobs/:id      DELETE /v1/jobs/:id (cancel)
+GET    /v1/push/key                       → VAPID public key
+POST   /v1/push/subscriptions             DELETE /v1/push/subscriptions   (this device)
+POST   /v1/feeds/rotate
+GET    /v1/feeds/:token/plans.ics
+```
+
+Request bodies validated with Zod; times are ISO 8601 with offset; energy in Wh and power in W (as stored). Everything appears in `/openapi.json`. Owner-scoped routes return 404 for another owner's job, never 403.
+
+#### Data model (migration 0003)
+
+- **`owners`** — `id`, `token_hash` (unique), `feed_token_hash` (unique), `locale`, `created_at_ms`, `last_seen_ms`.
+- **`jobs`** — `site_id` replaced by `owner_id` (cascade) plus `zone`, `grid_gln`, `task` (dishwasher, washing, dryer, ev), `locale`; `replan_requested_ms`; existing window, energy, power, contiguous, objective, status and `workflow_id` stay. (`sites` stays for deploy-your-own settings in Phase 3.)
+- **`plans`, `plan_slots`** — as in §7; `plan_slots.energy_wh` carries the partly filled last slot.
+- **`push_subscriptions`** — `id`, `owner_id` (cascade), `endpoint` (unique), the `p256dh` and `auth` keys **encrypted with the §12.1 envelope helper** under `PUSH_KEK` (associated data = owner id), `locale`, `created_at_ms`, `last_ok_ms`, `failures`.
+- **`deliveries`** — gains `subscription_id` (nullable; `integration_id` becomes nullable for Phase 3).
+- **Retention** in the nightly cleanup: jobs ended over 7 days ago, owners unseen for 90 days (cascade), dead subscriptions.
+
+#### Limits and abuse
+
+Per owner: ≤ 5 live jobs, ≤ 3 devices, ≤ 20 new jobs a day. Globally: ≤ 500 live jobs and ≤ 500 new owners a day, then a polite 503 ("plans are full right now") — this keeps the free plan's 100,000 requests and Workflow executions a day out of reach. The existing WAF rule (30 requests per 10 s per address) covers `/v1/*`. Windows ≤ 48 h ahead, energy ≤ 100 kWh, power ≤ 22 kW.
+
+#### Delivery, each step deployed
+
+| Step | Scope                                                                                                 | Done when                                                                                                                         |
+| ---- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| P2a  | Planner additions + `POST /v1/plan-preview` + the "Plan" form with three options (nothing stored yet) | Property tests above; e2e: the form shows three options for each task                                                             |
+| P2b  | Owners, jobs, `JobWorkflow`, "My plans", cancel, single-event `.ics`                                  | Integration test in Miniflare: create → plan 1 → time passes → actions taken → done; cancel stops it                              |
+| P2c  | `packages/webpush`, service worker, subscriptions, notifications                                      | RFC 8291 test vector passes; e2e with a fake push service that **decrypts** each message with the test subscription's private key |
+| P2d  | Provisional plans, re-plan on published prices, calendar feed                                         | §15's e2e: create job → provisional plan → prices land → plan 2 → notifications at slot boundaries                                |
+| P2e  | Privacy page, limits, retention, docs                                                                 | Privacy page lists exactly what is stored; quota and 503 paths tested                                                             |
+
+Before P2a: a half-day **spike** in `workerd` to measure a Web Push send's CPU time and to confirm `waitForEvent` timeouts and `terminate` behave as documented in Miniflare.
+
 ### 17.6 Decisions
 
 1. Main feature (§17.1) and order (§17.3): open.
 2. No contacting companies: decided 2026-10-31; charging parked accordingly.
+3. Phase 2 decisions P2-1 to P2-4 (§17.7): open.
 
 ---
 
