@@ -51,6 +51,8 @@ jobs:
         with:
           name: lighthouse-reports
           path: apps/web/.lighthouseci
+          # The folder starts with a dot, which upload-artifact skips unless told otherwise.
+          include-hidden-files: true
           retention-days: 7
       - name: Migrations match the schema
         run: |

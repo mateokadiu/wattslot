@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 
 // Outages come from a faked portal (e2e/serve.mjs) with incidents relative to the real clock:
@@ -76,3 +77,19 @@ test('the header flags an outage at your grid company', async ({ page }) => {
     page.getByRole('link', { name: 'Your grid company: Radius Elnet – power outage now' }).first(),
   ).toBeVisible();
 });
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`the loaded outage list has no detectable accessibility problems (${colorScheme})`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme });
+    await page.goto('/da/stroemafbrud/');
+    // Audit with every kind of item on screen, restored ones included.
+    await expect(page.getByText('Strømmen er tilbage')).toBeVisible();
+    await page.waitForFunction(() =>
+      document.getAnimations().every((a) => a.playState !== 'running'),
+    );
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  });
+}

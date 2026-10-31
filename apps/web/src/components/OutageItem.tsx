@@ -37,7 +37,7 @@ export function OutageItem({
             .filter(Boolean)
             .join(', ');
   return (
-    <li className={`py-3 ${o.restored ? 'opacity-75' : ''}`}>
+    <li className="py-3">
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span
           className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${BADGE[o.restored ? 'restored' : o.kind]}`}
