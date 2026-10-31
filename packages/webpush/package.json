@@ -1,0 +1,21 @@
+{
+  "name": "@wattslot/webpush",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "esbuild": "^0.28.2",
+    "miniflare": "^4.20260730.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
