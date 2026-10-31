@@ -64,6 +64,8 @@ export const dictionaries = {
       breadcrumb: 'Breadcrumb',
     },
     place: {
+      forget: 'Forget',
+      forgetLabel: 'Forget your grid company',
       outage: ' – power outage now',
       label: (name: string) => `Your grid company: ${name}`,
       area: (zone: string) => `Your price area: ${zone}`,
@@ -184,6 +186,8 @@ export const dictionaries = {
       breadcrumb: 'Brødkrummesti',
     },
     place: {
+      forget: 'Glem',
+      forgetLabel: 'Glem dit netselskab',
       outage: ' – strømafbrud lige nu',
       label: (name: string) => `Dit netselskab: ${name}`,
       area: (zone: string) => `Dit prisområde: ${zone}`,
@@ -305,6 +309,8 @@ export const dictionaries = {
       breadcrumb: 'Brotkrümelnavigation',
     },
     place: {
+      forget: 'Vergessen',
+      forgetLabel: 'Netzbetreiber vergessen',
       outage: ' – Stromausfall',
       label: (name: string) => `Dein Netzbetreiber: ${name}`,
       area: (zone: string) => `Deine Preiszone: ${zone}`,
@@ -430,6 +436,8 @@ export const dictionaries = {
       breadcrumb: 'Brødsmulesti',
     },
     place: {
+      forget: 'Glem',
+      forgetLabel: 'Glem nettselskapet ditt',
       outage: ' – strømbrudd nå',
       label: (name: string) => `Ditt nettselskap: ${name}`,
       area: (zone: string) => `Ditt prisområde: ${zone}`,
@@ -551,6 +559,8 @@ export const dictionaries = {
       breadcrumb: 'Brödsmulor',
     },
     place: {
+      forget: 'Glöm',
+      forgetLabel: 'Glöm ditt nätbolag',
       outage: ' – strömavbrott nu',
       label: (name: string) => `Ditt nätbolag: ${name}`,
       area: (zone: string) => `Ditt elområde: ${zone}`,

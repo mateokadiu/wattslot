@@ -2,7 +2,7 @@
 
 import { Check } from 'lucide-react';
 import { dictionaries, type Locale } from '@/lib/i18n';
-import { choosePlace, usePlace } from '@/lib/place';
+import { choosePlace, forgetPlace, usePlace } from '@/lib/place';
 
 /** "This is my grid company": remembers it in this browser for the live view and the header. */
 export function SetPlaceButton({
@@ -22,10 +22,20 @@ export function SetPlaceButton({
   return (
     <div className="flex min-h-10 flex-wrap items-center gap-x-4 gap-y-2 text-sm">
       {place?.gln === gln ? (
-        <span className="inline-flex items-center gap-1.5 font-medium">
-          <Check aria-hidden="true" className="h-4 w-4 text-[var(--accent)]" />
-          {t.place.saved}
-        </span>
+        <>
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            <Check aria-hidden="true" className="h-4 w-4 text-[var(--accent)]" />
+            {t.place.saved}
+          </span>
+          <button
+            type="button"
+            onClick={forgetPlace}
+            aria-label={t.place.forgetLabel}
+            className="text-[var(--muted)] underline underline-offset-2 hover:text-[var(--foreground)]"
+          >
+            {t.place.forget}
+          </button>
+        </>
       ) : (
         <button
           type="button"

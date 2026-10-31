@@ -67,6 +67,14 @@ const snapshot = (): string | null => {
   }
 };
 
+/**
+ * Stop treating the place as the visitor's own. The live view keeps showing the area last
+ * looked at; only the "yours" mark (header chip, company page) goes.
+ */
+export function forgetPlace(): void {
+  writePrefs({ ...readPrefs(), chosen: false, name: null });
+}
+
 /** Remember (or forget, with null) the postcode used on the outage page. */
 export function setPostcode(postcode: string | null): void {
   writePrefs({ ...readPrefs(), postcode });

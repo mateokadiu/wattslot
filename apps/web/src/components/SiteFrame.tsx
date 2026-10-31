@@ -60,23 +60,26 @@ export function SiteFrame({
         </a>
         <nav
           aria-label={t.sections}
-          className="order-3 flex w-full items-center gap-1 text-sm sm:order-none sm:w-auto"
+          className="order-3 flex w-full items-center gap-2 text-sm sm:order-none sm:w-auto"
         >
-          {sections.map((s) => (
-            <a
-              key={s.key}
-              href={s.href}
-              aria-current={s.key === current ? 'page' : undefined}
-              className={`rounded-md px-2.5 py-1.5 ${
-                s.key === current
-                  ? 'bg-[var(--card)] font-medium text-[var(--foreground)]'
-                  : 'text-[var(--muted)] hover:text-[var(--foreground)]'
-              }`}
-            >
-              {s.label}
-            </a>
-          ))}
-          <PlaceChip locale={locale} className="ml-auto flex sm:hidden" />
+          {/* On phones the sections scroll sideways if they don't fit; the chip stays put. */}
+          <div className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
+            {sections.map((s) => (
+              <a
+                key={s.key}
+                href={s.href}
+                aria-current={s.key === current ? 'page' : undefined}
+                className={`shrink-0 rounded-md px-2.5 py-1.5 ${
+                  s.key === current
+                    ? 'bg-[var(--card)] font-medium text-[var(--foreground)]'
+                    : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                {s.label}
+              </a>
+            ))}
+          </div>
+          <PlaceChip locale={locale} compact className="flex shrink-0 sm:hidden" />
         </nav>
         <div className="ml-auto flex items-center gap-4 text-sm text-[var(--muted)]">
           <PlaceChip locale={locale} className="hidden sm:flex" />

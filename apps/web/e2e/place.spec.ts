@@ -85,6 +85,28 @@ test.describe('my place', () => {
     await expect(chip(page).first()).toHaveAccessibleName('Your grid company: Cerius');
   });
 
+  test('can be forgotten from the header or the company page', async ({ page }) => {
+    await visit(page, '/da/netselskaber/radius-elnet/');
+    await page.getByRole('button', { name: 'Det er mit netselskab' }).click();
+    await page
+      .getByRole('button', { name: 'Glem dit netselskab' })
+      .filter({ visible: true })
+      .first()
+      .click();
+    await expect(chip(page)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Det er mit netselskab' })).toBeVisible();
+
+    // And from the chip, on any page.
+    await page.getByRole('button', { name: 'Det er mit netselskab' }).click();
+    await page.goto('/da/guides/');
+    await page
+      .getByRole('button', { name: 'Glem dit netselskab' })
+      .filter({ visible: true })
+      .first()
+      .click();
+    await expect(chip(page)).toHaveCount(0);
+  });
+
   test('a shared link shows another place without replacing yours', async ({ page }) => {
     await visit(page, '/grid-companies/radius-elnet/');
     await page.getByRole('button', { name: 'This is my grid company' }).click();
