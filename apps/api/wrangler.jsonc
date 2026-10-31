@@ -13,6 +13,8 @@
   },
   // The free plan allows 5 Cron Triggers per account; one dispatches every task.
   "triggers": { "crons": ["*/5 * * * *"] },
+  // `off` pauses the outage overview (PLAN.md §17.4) without a code change.
+  "vars": { "OUTAGES": "on" },
   "d1_databases": [
     {
       "binding": "DB",

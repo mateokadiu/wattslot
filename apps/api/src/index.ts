@@ -6,6 +6,7 @@ import { edgeCache } from './cache.ts';
 import type { AppEnv, Env } from './env.ts';
 import { runScheduled } from './ingest/run.ts';
 import { RequestError } from './prices/service.ts';
+import { outageRoutes } from './routes/outages.ts';
 import { priceRoutes } from './routes/prices.ts';
 import { referenceRoutes } from './routes/reference.ts';
 import { statusRoutes } from './routes/status.ts';
@@ -35,6 +36,7 @@ app.route('/v1', referenceRoutes);
 app.route('/v1', statusRoutes);
 app.route('/v1', priceRoutes);
 app.route('/v1', tariffRoutes);
+app.route('/v1', outageRoutes);
 
 app.doc31('/openapi.json', {
   openapi: '3.1.0',

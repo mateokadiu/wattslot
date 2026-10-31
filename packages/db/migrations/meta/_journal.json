@@ -15,6 +15,13 @@
       "when": 1793218583084,
       "tag": "0001_reference_data",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793479813066,
+      "tag": "0002_outages",
+      "breakpoints": true
     }
   ]
 }

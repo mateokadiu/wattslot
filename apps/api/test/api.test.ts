@@ -196,6 +196,7 @@ describe('api', () => {
       '/v1/co2',
       '/v1/cheapest',
       '/v1/tariffs',
+      '/v1/outages',
     ]);
   });
 });

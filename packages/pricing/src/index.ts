@@ -44,4 +44,5 @@ export {
   SLOT_MINUTES,
   SLOT_MS,
   slotsForLocalDate,
+  wallClockToUtc,
 } from './time.ts';

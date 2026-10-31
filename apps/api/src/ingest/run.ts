@@ -12,6 +12,8 @@ import {
   toMicro,
 } from '@wattslot/pricing';
 import type { Env } from '../env.ts';
+import { OUTAGE_API, type OutageList, SHOW_TYPE, toOutageRows } from '../outages/feed.ts';
+import { syncOutages } from '../outages/store.ts';
 import { type Clock, clockAt, dayAheadTargetDays, dueTasks, type Task } from './schedule.ts';
 import {
   changedSpotRows,
@@ -39,8 +41,12 @@ interface Context {
   /** Raw D1 for bulk writes; see store.ts. */
   d1: D1Database;
   eds: Eds;
+  fetch: typeof fetch;
   clock: Clock;
 }
+
+const USER_AGENT = 'wattslot (github.com/mateokadiu/wattslot)';
+const OUTAGE_TASKS: readonly Task[] = ['outages', 'outages_planned'];
 
 type Runner = (ctx: Context) => Promise<Record<string, unknown>>;
 
@@ -180,19 +186,38 @@ const tariffs: Runner = async ({ db, d1, eds, clock }) => {
  * aren't touched: they're small, and the nightly sync would only fetch old periods back.
  */
 export const RETENTION_DAYS = 400;
+const OUTAGE_RETENTION_DAYS = 30;
 
 const cleanup: Runner = async ({ d1, clock }) => {
   const beforeMs = clock.nowMs - RETENTION_DAYS * 86_400_000;
-  const [spot, co2] = await d1.batch([
+  const [spot, co2, outages] = await d1.batch([
     d1.prepare('delete from spot_prices where slot_start_ms < ?').bind(beforeMs),
     d1.prepare('delete from co2_intensity where time_ms < ?').bind(beforeMs),
+    // Outages are only shown while current; keep ended ones a month, then let them go.
+    d1
+      .prepare('delete from outages where gone_ms < ?')
+      .bind(clock.nowMs - OUTAGE_RETENTION_DAYS * 86_400_000),
   ]);
   return {
     before: new Date(beforeMs).toISOString(),
     spotPrices: spot?.meta.changes ?? 0,
     co2: co2?.meta.changes ?? 0,
+    outages: outages?.meta.changes ?? 0,
   };
 };
+
+/** One of the outage portal's lists: fetch it and bring the stored incidents in line. */
+const outageRunner =
+  (list: OutageList): Runner =>
+  async ({ d1, fetch: fetchImpl, clock }) => {
+    const response = await fetchImpl(`${OUTAGE_API}?showType=${SHOW_TYPE[list]}&supplierId=0`, {
+      headers: { accept: 'application/json', 'user-agent': USER_AGENT },
+    });
+    if (!response.ok) throw new Error(`Outage portal answered ${response.status}`);
+    const { rows, skipped } = toOutageRows(await response.json(), list);
+    const result = await syncOutages(d1, list, rows, clock.nowMs);
+    return { incidents: rows.length, skipped, ...result };
+  };
 
 const RUNNERS: Record<Task, Runner> = {
   day_ahead: dayAhead,
@@ -200,6 +225,8 @@ const RUNNERS: Record<Task, Runner> = {
   co2_actual: co2Runner('actual'),
   tariffs,
   cleanup,
+  outages: outageRunner('active'),
+  outages_planned: outageRunner('planned'),
 };
 
 /** Entry point for the 5-minute Cron Trigger. Tasks run one after another, one request each. */
@@ -213,13 +240,15 @@ export async function runScheduled(
   const clock = clockAt(scheduledTimeMs);
   const eds = createEdsClient({
     fetch: fetchImpl,
-    userAgent: 'wattslot (github.com/mateokadiu/wattslot)',
+    userAgent: USER_AGENT,
   });
-  const due = dueTasks(clock, await loadTaskStates(db));
+  const due = dueTasks(clock, await loadTaskStates(db)).filter(
+    (task) => env.OUTAGES !== 'off' || !OUTAGE_TASKS.includes(task),
+  );
   const report: Record<string, unknown> = {};
   for (const task of due) {
     try {
-      report[task] = await RUNNERS[task]({ db, d1, eds, clock });
+      report[task] = await RUNNERS[task]({ db, d1, eds, fetch: fetchImpl, clock });
       await recordTask(db, task, clock.nowMs, { ok: true });
     } catch (error) {
       const nextAttemptAtMs =

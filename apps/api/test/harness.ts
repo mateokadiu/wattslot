@@ -55,7 +55,7 @@ export const local = (hhmm: string) => {
   return new Date(Date.UTC(2026, 9, 28, h - 1, m));
 };
 
-export async function startWorker(): Promise<Harness> {
+export async function startWorker(bindings: Record<string, string> = {}): Promise<Harness> {
   const bundle = await build({
     entryPoints: [fileURLToPath(new URL('../src/index.ts', import.meta.url))],
     bundle: true,
@@ -73,12 +73,16 @@ export async function startWorker(): Promise<Harness> {
   const overrides = new Map<string, string>();
   const mf = new Miniflare({
     modules: true,
+    bindings,
     script: bundle.outputFiles[0]?.text ?? '',
     compatibilityDate: '2026-07-01',
     d1Databases: { DB: `wattslot-${Math.random().toString(36).slice(2)}` },
     outboundService: (request: Request) => {
       const url = new URL(request.url);
-      const dataset = url.pathname.split('/').pop() ?? '';
+      // Outage portal lists share a path; tell them apart by showType ("incidents:2").
+      const dataset = url.hostname.endsWith('greenpowerdenmark.dk')
+        ? `incidents:${url.searchParams.get('showType')}`
+        : (url.pathname.split('/').pop() ?? '');
       calls.push(dataset);
       urls.push(url);
       if (rateLimited.has(dataset)) {
@@ -87,6 +91,9 @@ export async function startWorker(): Promise<Harness> {
       const override = overrides.get(dataset);
       if (override !== undefined) {
         return new Response(override, { headers: { 'content-type': 'application/json' } });
+      }
+      if (dataset.startsWith('incidents:')) {
+        return new Response('[]', { headers: { 'content-type': 'application/json' } });
       }
       const name = FIXTURES[dataset];
       return name

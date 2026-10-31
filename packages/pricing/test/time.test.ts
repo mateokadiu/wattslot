@@ -7,6 +7,7 @@ import {
   localTime,
   SLOT_MS,
   slotsForLocalDate,
+  wallClockToUtc,
 } from '../src/index.ts';
 
 const tz = DK_TIME_ZONE;
@@ -59,5 +60,37 @@ describe('local time in Europe/Copenhagen', () => {
       }),
       { numRuns: 300 },
     );
+  });
+});
+
+describe('wallClockToUtc', () => {
+  const tz = 'Europe/Copenhagen';
+  const iso = (ms: number) => new Date(ms).toISOString();
+
+  it('converts winter and summer local times', () => {
+    expect(iso(wallClockToUtc('2026-11-05T07:00:00', tz))).toBe('2026-11-05T06:00:00.000Z');
+    expect(iso(wallClockToUtc('2027-06-01T07:00', tz))).toBe('2027-06-01T05:00:00.000Z');
+  });
+
+  it('takes the first 02:30 when the clocks go back', () => {
+    expect(iso(wallClockToUtc('2026-10-25T02:30:00', tz))).toBe('2026-10-25T00:30:00.000Z');
+  });
+
+  it('moves a skipped 02:30 an hour on when the clocks go forward', () => {
+    expect(iso(wallClockToUtc('2027-03-28T02:30:00', tz))).toBe('2027-03-28T01:30:00.000Z');
+  });
+
+  it('round-trips every quarter hour of a year', () => {
+    for (let t = Date.UTC(2026, 0, 1); t < Date.UTC(2027, 0, 1); t += 15 * 60_000) {
+      const local = localTime(t, tz).wallClock;
+      const back = wallClockToUtc(local, tz);
+      // In the repeated hour the earlier instant is returned; everywhere else it's exact.
+      expect(localTime(back, tz).wallClock).toBe(local);
+      expect(back === t || back === t - 3_600_000).toBe(true);
+    }
+  });
+
+  it('rejects text that is not a wall-clock time', () => {
+    expect(() => wallClockToUtc('5 Nov 2026', tz)).toThrow(RangeError);
   });
 });

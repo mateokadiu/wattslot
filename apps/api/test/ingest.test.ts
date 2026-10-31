@@ -21,7 +21,7 @@ describe('ingestion cron', () => {
   it('fills an empty database on the first run after midnight', async () => {
     await h.tick('00:00');
     expect(new Set(h.calls)).toEqual(
-      new Set(['DayAheadPrices', 'CO2EmisProg', 'DatahubPricelist']),
+      new Set(['DayAheadPrices', 'CO2EmisProg', 'DatahubPricelist', 'incidents:2', 'incidents:3']),
     );
     expect(await count('select count(*) n from spot_prices')).toBe(192);
     expect(await count("select count(*) n from co2_intensity where kind = 'forecast'")).toBe(24);
@@ -64,8 +64,19 @@ describe('ingestion cron', () => {
         )
         .bind(old, old),
     ]);
+    // Outages that ended over 30 days before the run go too; a recent one stays.
+    const outage = h.db.prepare(
+      `insert into outages (id, list, supplier_id, supplier_name, kind, title, postcodes, hash,
+         first_seen_ms, gone_ms)
+       values (?, 'active', 4, 'Radius Elnet A/S', 'unplanned', 'Afbrud', '[]', 'x', 0, ?)`,
+    );
+    await h.db.batch([
+      outage.bind(901, local('03:30').getTime() - 40 * 86_400_000),
+      outage.bind(902, local('03:30').getTime() - 2 * 86_400_000),
+    ]);
     expect(await count('select count(*) n from spot_prices')).toBe(193);
     await h.tick('03:30');
+    expect(await count('select count(*) n from outages where id in (901, 902)')).toBe(1);
     expect(await count(`select count(*) n from spot_prices where slot_start_ms = ${old}`)).toBe(0);
     expect(await count(`select count(*) n from co2_intensity where time_ms = ${old}`)).toBe(0);
     expect(await count('select count(*) n from spot_prices')).toBe(192); // this week's untouched
@@ -76,7 +87,8 @@ describe('ingestion cron', () => {
     const issued = "select max(issued_at_ms) n from co2_intensity where kind = 'forecast'";
     const before = await count(issued);
     await h.tick('00:30');
-    expect(h.calls).toEqual(['CO2EmisProg']); // today's prices are complete; tariffs are fresh
+    // Today's prices are complete and tariffs fresh; current outages are fetched every tick.
+    expect(h.calls).toEqual(['CO2EmisProg', 'incidents:2']);
     expect(await count(issued)).toBe(before);
   });
 

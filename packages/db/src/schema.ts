@@ -149,6 +149,47 @@ export const charges = sqliteTable(
   ],
 );
 
+/**
+ * Power outages from Green Power Denmark's outage portal (PLAN.md §17.4), keyed by its incident
+ * id. Rows are only written when their content changes; no "last seen" column, as updating one
+ * every five minutes would cost tens of thousands of writes a day.
+ */
+export const outages = sqliteTable(
+  'outages',
+  {
+    id: integer('id').primaryKey(),
+    /** Which of the portal's lists the incident was last in: current, or planned work. */
+    list: text('list', { enum: ['active', 'planned'] }).notNull(),
+    supplierId: integer('supplier_id').notNull(),
+    supplierName: text('supplier_name').notNull(),
+    /** Our grid company, when the portal's supplier maps to one. */
+    gln: text('gln').references(() => gridCompanies.gln),
+    kind: text('kind', { enum: ['unplanned', 'announced', 'planned', 'notice'] }).notNull(),
+    title: text('title').notNull(),
+    cause: text('cause'),
+    comment: text('comment'),
+    customers: integer('customers'),
+    startMs: integer('start_ms'),
+    endMs: integer('end_ms'),
+    expectedEndMs: integer('expected_end_ms'),
+    postcodes: text('postcodes', { mode: 'json' }).$type<string[]>().notNull(),
+    lat: real('lat'),
+    lng: real('lng'),
+    radiusM: integer('radius_m'),
+    /** Of everything above, to skip unchanged writes. */
+    hash: text('hash').notNull(),
+    firstSeenMs: integer('first_seen_ms').notNull(),
+    /** Set when the incident leaves its list: the outage ended or the notice was withdrawn. */
+    goneMs: integer('gone_ms'),
+  },
+  (t) => [
+    check('outages_list', sql`${t.list} in ('active', 'planned')`),
+    check('outages_kind', sql`${t.kind} in ('unplanned', 'announced', 'planned', 'notice')`),
+    index('outages_open').on(t.goneMs, t.list),
+    index('outages_gln').on(t.gln),
+  ],
+);
+
 /** VAT isn't published by DataHub, so it lives here as dated rows instead of a constant. */
 export const vatRates = sqliteTable(
   'vat_rates',

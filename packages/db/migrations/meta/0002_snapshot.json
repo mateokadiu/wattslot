@@ -1,0 +1,1494 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "55fc6205-4a2f-4725-9b60-a2ec749bf756",
+  "prevId": "3eeceb66-b873-4ed1-86b1-00cb7302e151",
+  "tables": {
+    "charges": {
+      "name": "charges",
+      "columns": {
+        "owner_gln": {
+          "name": "owner_gln",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "charge_code": {
+          "name": "charge_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "charge_type": {
+          "name": "charge_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_to": {
+          "name": "valid_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hourly_micro": {
+          "name": "hourly_micro",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_tax": {
+          "name": "is_tax",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ingested_at_ms": {
+          "name": "ingested_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsec') * 1000 as integer))"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "charges_owner_gln_charge_type_charge_code_valid_from_pk": {
+          "columns": [
+            "owner_gln",
+            "charge_type",
+            "charge_code",
+            "valid_from"
+          ],
+          "name": "charges_owner_gln_charge_type_charge_code_valid_from_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "charges_type": {
+          "name": "charges_type",
+          "value": "\"charges\".\"charge_type\" in ('D01', 'D02', 'D03')"
+        },
+        "charges_24_hours": {
+          "name": "charges_24_hours",
+          "value": "json_array_length(\"charges\".\"hourly_micro\") = 24"
+        },
+        "charges_valid_from_format": {
+          "name": "charges_valid_from_format",
+          "value": "\"valid_from\" = strftime('%Y-%m-%dT%H:%M:%S', \"valid_from\")"
+        },
+        "charges_valid_to_format": {
+          "name": "charges_valid_to_format",
+          "value": "\"charges\".\"valid_to\" is null or \"valid_to\" = strftime('%Y-%m-%dT%H:%M:%S', \"valid_to\")"
+        },
+        "charges_valid_range": {
+          "name": "charges_valid_range",
+          "value": "\"charges\".\"valid_to\" is null or \"charges\".\"valid_to\" > \"charges\".\"valid_from\""
+        }
+      }
+    },
+    "co2_intensity": {
+      "name": "co2_intensity",
+      "columns": {
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "time_ms": {
+          "name": "time_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "g_per_kwh": {
+          "name": "g_per_kwh",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "issued_at_ms": {
+          "name": "issued_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "co2_intensity_zone_price_zones_code_fk": {
+          "name": "co2_intensity_zone_price_zones_code_fk",
+          "tableFrom": "co2_intensity",
+          "tableTo": "price_zones",
+          "columnsFrom": [
+            "zone"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "co2_intensity_zone_time_ms_kind_pk": {
+          "columns": [
+            "zone",
+            "time_ms",
+            "kind"
+          ],
+          "name": "co2_intensity_zone_time_ms_kind_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "co2_intensity_kind": {
+          "name": "co2_intensity_kind",
+          "value": "\"co2_intensity\".\"kind\" in ('forecast', 'actual')"
+        },
+        "co2_intensity_aligned": {
+          "name": "co2_intensity_aligned",
+          "value": "\"co2_intensity\".\"time_ms\" % 300000 = 0"
+        }
+      }
+    },
+    "deliveries": {
+      "name": "deliveries",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "integration_id": {
+          "name": "integration_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at_ms": {
+          "name": "created_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsec') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "deliveries_idempotency_key_unique": {
+          "name": "deliveries_idempotency_key_unique",
+          "columns": [
+            "idempotency_key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "deliveries_integration_id_integrations_id_fk": {
+          "name": "deliveries_integration_id_integrations_id_fk",
+          "tableFrom": "deliveries",
+          "tableTo": "integrations",
+          "columnsFrom": [
+            "integration_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "deliveries_plan_id_plans_id_fk": {
+          "name": "deliveries_plan_id_plans_id_fk",
+          "tableFrom": "deliveries",
+          "tableTo": "plans",
+          "columnsFrom": [
+            "plan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "deliveries_action": {
+          "name": "deliveries_action",
+          "value": "\"deliveries\".\"action\" in ('notify', 'start', 'stop', 'push_plan')"
+        },
+        "deliveries_status": {
+          "name": "deliveries_status",
+          "value": "\"deliveries\".\"status\" in ('pending', 'ok', 'failed')"
+        }
+      }
+    },
+    "grid_companies": {
+      "name": "grid_companies",
+      "columns": {
+        "gln": {
+          "name": "gln",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metering_points": {
+          "name": "metering_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "support": {
+          "name": "support",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "support_note": {
+          "name": "support_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "degraded_at_ms": {
+          "name": "degraded_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "grid_companies_zone_price_zones_code_fk": {
+          "name": "grid_companies_zone_price_zones_code_fk",
+          "tableFrom": "grid_companies",
+          "tableTo": "price_zones",
+          "columnsFrom": [
+            "zone"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "grid_companies_support": {
+          "name": "grid_companies_support",
+          "value": "\"grid_companies\".\"support\" in ('supported', 'unsupported')"
+        }
+      }
+    },
+    "ingest_state": {
+      "name": "ingest_state",
+      "columns": {
+        "task": {
+          "name": "task",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_success_at_ms": {
+          "name": "last_success_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "next_attempt_at_ms": {
+          "name": "next_attempt_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at_ms": {
+          "name": "updated_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsec') * 1000 as integer))"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "integrations": {
+      "name": "integrations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "config": {
+          "name": "config",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "secret_ciphertext": {
+          "name": "secret_ciphertext",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "secret_wrapped_key": {
+          "name": "secret_wrapped_key",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "secret_aad": {
+          "name": "secret_aad",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "created_at_ms": {
+          "name": "created_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsec') * 1000 as integer))"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "integrations_site_id_sites_id_fk": {
+          "name": "integrations_site_id_sites_id_fk",
+          "tableFrom": "integrations",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "integrations_kind": {
+          "name": "integrations_kind",
+          "value": "\"integrations\".\"kind\" in ('webpush', 'webhook', 'evcc', 'ha_feed', 'easee')"
+        },
+        "integrations_secret_complete": {
+          "name": "integrations_secret_complete",
+          "value": "(\"integrations\".\"secret_ciphertext\" is null) = (\"integrations\".\"secret_wrapped_key\" is null)"
+        }
+      }
+    },
+    "jobs": {
+      "name": "jobs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "energy_wh": {
+          "name": "energy_wh",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "max_power_w": {
+          "name": "max_power_w",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "earliest_ms": {
+          "name": "earliest_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deadline_ms": {
+          "name": "deadline_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "contiguous": {
+          "name": "contiguous",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "min_run_slots": {
+          "name": "min_run_slots",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "objective": {
+          "name": "objective",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'balanced'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workflow_id": {
+          "name": "workflow_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at_ms": {
+          "name": "created_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsec') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "jobs_workflow_id_unique": {
+          "name": "jobs_workflow_id_unique",
+          "columns": [
+            "workflow_id"
+          ],
+          "isUnique": true
+        },
+        "jobs_site_status": {
+          "name": "jobs_site_status",
+          "columns": [
+            "site_id",
+            "status"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "jobs_site_id_sites_id_fk": {
+          "name": "jobs_site_id_sites_id_fk",
+          "tableFrom": "jobs",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "jobs_kind": {
+          "name": "jobs_kind",
+          "value": "\"jobs\".\"kind\" in ('ev', 'appliance', 'heat_boost', 'custom')"
+        },
+        "jobs_objective": {
+          "name": "jobs_objective",
+          "value": "\"jobs\".\"objective\" in ('cheapest', 'balanced', 'greenest')"
+        },
+        "jobs_status": {
+          "name": "jobs_status",
+          "value": "\"jobs\".\"status\" in ('planned', 'running', 'done', 'cancelled', 'failed')"
+        },
+        "jobs_window": {
+          "name": "jobs_window",
+          "value": "\"jobs\".\"deadline_ms\" > \"jobs\".\"earliest_ms\""
+        },
+        "jobs_positive": {
+          "name": "jobs_positive",
+          "value": "\"jobs\".\"energy_wh\" > 0 and \"jobs\".\"max_power_w\" > 0"
+        }
+      }
+    },
+    "meter_readings": {
+      "name": "meter_readings",
+      "columns": {
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slot_start_ms": {
+          "name": "slot_start_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "energy_wh": {
+          "name": "energy_wh",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "meter_readings_site_id_sites_id_fk": {
+          "name": "meter_readings_site_id_sites_id_fk",
+          "tableFrom": "meter_readings",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "meter_readings_site_id_slot_start_ms_pk": {
+          "columns": [
+            "site_id",
+            "slot_start_ms"
+          ],
+          "name": "meter_readings_site_id_slot_start_ms_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "outages": {
+      "name": "outages",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "list": {
+          "name": "list",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "supplier_name": {
+          "name": "supplier_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "gln": {
+          "name": "gln",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cause": {
+          "name": "cause",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "comment": {
+          "name": "comment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "customers": {
+          "name": "customers",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "start_ms": {
+          "name": "start_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "end_ms": {
+          "name": "end_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "expected_end_ms": {
+          "name": "expected_end_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "postcodes": {
+          "name": "postcodes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lat": {
+          "name": "lat",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lng": {
+          "name": "lng",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "radius_m": {
+          "name": "radius_m",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "first_seen_ms": {
+          "name": "first_seen_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "gone_ms": {
+          "name": "gone_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "outages_open": {
+          "name": "outages_open",
+          "columns": [
+            "gone_ms",
+            "list"
+          ],
+          "isUnique": false
+        },
+        "outages_gln": {
+          "name": "outages_gln",
+          "columns": [
+            "gln"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "outages_gln_grid_companies_gln_fk": {
+          "name": "outages_gln_grid_companies_gln_fk",
+          "tableFrom": "outages",
+          "tableTo": "grid_companies",
+          "columnsFrom": [
+            "gln"
+          ],
+          "columnsTo": [
+            "gln"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "outages_list": {
+          "name": "outages_list",
+          "value": "\"outages\".\"list\" in ('active', 'planned')"
+        },
+        "outages_kind": {
+          "name": "outages_kind",
+          "value": "\"outages\".\"kind\" in ('unplanned', 'announced', 'planned', 'notice')"
+        }
+      }
+    },
+    "plan_slots": {
+      "name": "plan_slots",
+      "columns": {
+        "plan_id": {
+          "name": "plan_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slot_start_ms": {
+          "name": "slot_start_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "energy_wh": {
+          "name": "energy_wh",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "price_micro": {
+          "name": "price_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "co2_g_per_kwh": {
+          "name": "co2_g_per_kwh",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "estimated": {
+          "name": "estimated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plan_slots_plan_id_plans_id_fk": {
+          "name": "plan_slots_plan_id_plans_id_fk",
+          "tableFrom": "plan_slots",
+          "tableTo": "plans",
+          "columnsFrom": [
+            "plan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "plan_slots_plan_id_slot_start_ms_pk": {
+          "columns": [
+            "plan_id",
+            "slot_start_ms"
+          ],
+          "name": "plan_slots_plan_id_slot_start_ms_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "plan_slots_aligned": {
+          "name": "plan_slots_aligned",
+          "value": "\"plan_slots\".\"slot_start_ms\" % 900000 = 0"
+        }
+      }
+    },
+    "plans": {
+      "name": "plans",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "provisional": {
+          "name": "provisional",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cost_micro": {
+          "name": "cost_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "co2_grams": {
+          "name": "co2_grams",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "baseline_now_micro": {
+          "name": "baseline_now_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "baseline_midnight_micro": {
+          "name": "baseline_midnight_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at_ms": {
+          "name": "created_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsec') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "plans_job_version": {
+          "name": "plans_job_version",
+          "columns": [
+            "job_id",
+            "version"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "plans_job_id_jobs_id_fk": {
+          "name": "plans_job_id_jobs_id_fk",
+          "tableFrom": "plans",
+          "tableTo": "jobs",
+          "columnsFrom": [
+            "job_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "plans_reason": {
+          "name": "plans_reason",
+          "value": "\"plans\".\"reason\" in ('created', 'prices_published', 'co2_updated', 'user_edit')"
+        }
+      }
+    },
+    "price_zones": {
+      "name": "price_zones",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "full_price": {
+          "name": "full_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "sites": {
+      "name": "sites",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "grid_gln": {
+          "name": "grid_gln",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "supplier_markup_micro": {
+          "name": "supplier_markup_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "co2_price_micro_per_kg": {
+          "name": "co2_price_micro_per_kg",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1000000
+        },
+        "feed_token_hash": {
+          "name": "feed_token_hash",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at_ms": {
+          "name": "created_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsec') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "sites_feed_token_hash_unique": {
+          "name": "sites_feed_token_hash_unique",
+          "columns": [
+            "feed_token_hash"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "sites_zone_price_zones_code_fk": {
+          "name": "sites_zone_price_zones_code_fk",
+          "tableFrom": "sites",
+          "tableTo": "price_zones",
+          "columnsFrom": [
+            "zone"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sites_grid_gln_grid_companies_gln_fk": {
+          "name": "sites_grid_gln_grid_companies_gln_fk",
+          "tableFrom": "sites",
+          "tableTo": "grid_companies",
+          "columnsFrom": [
+            "grid_gln"
+          ],
+          "columnsTo": [
+            "gln"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "spot_prices": {
+      "name": "spot_prices",
+      "columns": {
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slot_start_ms": {
+          "name": "slot_start_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "price_micro": {
+          "name": "price_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "price_eur_micro": {
+          "name": "price_eur_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ingested_at_ms": {
+          "name": "ingested_at_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsec') * 1000 as integer))"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "spot_prices_zone_price_zones_code_fk": {
+          "name": "spot_prices_zone_price_zones_code_fk",
+          "tableFrom": "spot_prices",
+          "tableTo": "price_zones",
+          "columnsFrom": [
+            "zone"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "spot_prices_zone_slot_start_ms_pk": {
+          "columns": [
+            "zone",
+            "slot_start_ms"
+          ],
+          "name": "spot_prices_zone_slot_start_ms_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "spot_prices_slot_aligned": {
+          "name": "spot_prices_slot_aligned",
+          "value": "\"spot_prices\".\"slot_start_ms\" % 900000 = 0"
+        }
+      }
+    },
+    "tariff_mappings": {
+      "name": "tariff_mappings",
+      "columns": {
+        "gln": {
+          "name": "gln",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "customer_type": {
+          "name": "customer_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "charge_code": {
+          "name": "charge_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tariff_mappings_gln_grid_companies_gln_fk": {
+          "name": "tariff_mappings_gln_grid_companies_gln_fk",
+          "tableFrom": "tariff_mappings",
+          "tableTo": "grid_companies",
+          "columnsFrom": [
+            "gln"
+          ],
+          "columnsTo": [
+            "gln"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "tariff_mappings_gln_customer_type_charge_code_pk": {
+          "columns": [
+            "gln",
+            "customer_type",
+            "charge_code"
+          ],
+          "name": "tariff_mappings_gln_customer_type_charge_code_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "tariff_mappings_role": {
+          "name": "tariff_mappings_role",
+          "value": "\"tariff_mappings\".\"role\" in ('tariff', 'discount')"
+        }
+      }
+    },
+    "vat_rates": {
+      "name": "vat_rates",
+      "columns": {
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_to": {
+          "name": "valid_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "basis_points": {
+          "name": "basis_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vat_rates_zone_price_zones_code_fk": {
+          "name": "vat_rates_zone_price_zones_code_fk",
+          "tableFrom": "vat_rates",
+          "tableTo": "price_zones",
+          "columnsFrom": [
+            "zone"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "vat_rates_zone_valid_from_pk": {
+          "columns": [
+            "zone",
+            "valid_from"
+          ],
+          "name": "vat_rates_zone_valid_from_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vat_rates_range": {
+          "name": "vat_rates_range",
+          "value": "\"vat_rates\".\"basis_points\" between 0 and 10000"
+        },
+        "vat_rates_date_format": {
+          "name": "vat_rates_date_format",
+          "value": "\"valid_from\" = date(\"valid_from\")"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

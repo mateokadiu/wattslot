@@ -91,6 +91,35 @@ export function localMidnight(date: string, timeZone: string): number {
   return utc;
 }
 
+const WALL_CLOCK = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/;
+
+/**
+ * The UTC instant of a local wall-clock time ("2026-11-05T07:00[:00]"). In the hour that
+ * repeats when clocks go back, the first (summer-time) occurrence; in the hour skipped when
+ * they go forward, the instant one hour later on the wall clock.
+ */
+export function wallClockToUtc(wallClock: string, timeZone: string): number {
+  const m = WALL_CLOCK.exec(wallClock);
+  if (!m) throw new RangeError(`expected YYYY-MM-DDTHH:MM, got ${wallClock}`);
+  const wall = Date.UTC(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5]),
+    Number(m[6] ?? 0),
+  );
+  // A zone's offset changes at most once a day here, so the offsets a day either side are the
+  // only ones that can apply; keep the candidates that map back to the same wall clock.
+  const candidates = [
+    ...new Set([-86_400_000, 0, 86_400_000].map((d) => wall - offsetMs(wall + d, timeZone))),
+  ];
+  const exact = candidates
+    .filter((utc) => utc + offsetMs(utc, timeZone) === wall)
+    .sort((a, b) => a - b)[0];
+  return exact ?? Math.max(...candidates);
+}
+
 /**
  * Every 15-minute slot start (UTC ms) that falls on `date` in `timeZone`:
  * 96 on a normal day, 92 when clocks spring forward, 100 when they fall back.

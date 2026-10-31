@@ -1,6 +1,14 @@
 import { addDays, DK_TIME_ZONE, type LocalTime, localTime } from '@wattslot/pricing';
 
-export const TASKS = ['day_ahead', 'co2_forecast', 'co2_actual', 'tariffs', 'cleanup'] as const;
+export const TASKS = [
+  'day_ahead',
+  'co2_forecast',
+  'co2_actual',
+  'tariffs',
+  'cleanup',
+  'outages',
+  'outages_planned',
+] as const;
 export type Task = (typeof TASKS)[number];
 
 export interface TaskState {
@@ -48,6 +56,11 @@ export function dueTasks(clock: Clock, states: ReadonlyMap<Task, TaskState>): Ta
     cleanup:
       (clock.local.hour === 3 && clock.local.minute >= 30 && clock.local.minute < 35) ||
       (states.get('cleanup')?.lastSuccessAtMs ?? 0) < clock.nowMs - DAY_MS - 3_600_000,
+    // Current outages on every tick; planned work hourly, at :05 when nothing else runs.
+    outages: true,
+    outages_planned:
+      (clock.local.minute >= 5 && clock.local.minute < 10) ||
+      (states.get('outages_planned')?.lastSuccessAtMs ?? 0) < clock.nowMs - 2 * 3_600_000,
   };
   return TASKS.filter((task) => {
     const next = states.get(task)?.nextAttemptAtMs;

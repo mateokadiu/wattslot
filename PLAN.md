@@ -755,6 +755,17 @@ _Research 2026-10-29, verified by fetching:_ Danish grid companies report outage
 - **Without contacting anyone:** the API is public (no login, key or terms), the companies' own sites call it from visitors' browsers, and elnet.dk says the API can be used to show its results on your own website. Poll politely (5 min, identifying User-Agent), credit the source, link each company's page, never bulk-copy the history, and keep one switch to turn the feature off if anyone objects. Not legal advice: repeated extraction of a whole database is a grey area under the EU database right; current outages with attribution, as the companies' own sites show them, is low-risk.
 - **Risks:** undocumented API that could change or close (mitigation: a health check that degrades gracefully, and the off switch); reporting completeness varies by company.
 
+_Build decisions (2026-10-31, from the live feed):_
+
+- **Times:** `startDate`, `endDate` and `expectedDowntime` are Danish local wall-clock time (unplanned outages appear "created" about an hour before they started when read naively; planned work starts on round local hours); `created` is UTC. Converted with a DST-safe `wallClockToUtc` in `@wattslot/pricing`.
+- **Kinds:** 1 Uvarslet → `unplanned`, 2 Varslet → `announced`, 3 Planlagt → `planned`, 4 Særlig driftsinfo → `notice`. On 2026-10-31: 3 unplanned, 10 announced, 4 notices, 296 planned (up to 6 weeks ahead).
+- **Two lists:** `active` (`showType=2`, every 5 minutes) and `planned` (`showType=3`, hourly). An incident missing from its list is marked gone; one statement upserts only rows whose content hash changed, so writes stay in the hundreds a day.
+- **Supplier mapping** is a typed constant in the API (`apps/api/src/outages/suppliers.ts`): Green Power Denmark keeps old ids after mergers (N1 has seven, Cerius four; former MES Net shares RAH Net's phone number). Unmapped ids (electricity retailers) are still shown nationally, without a company link. The constant also carries each company's phone number and outage page.
+- **Shown:** open outages; ended ones for 2 hours as "restored"; open ones whose expected end is more than 12 hours past are hidden as stale; planned work in the next 30 days. The API reports when it last fetched, and the page says so when that is over 20 minutes old.
+- **Off switch:** the `OUTAGES` Worker variable; `off` stops fetching and the pages say the overview is paused.
+- **Not done:** no 90-day history (bulk copying), no map in v1 (a lazy-loaded map can follow), no grid-company detection from an address (see §17.2).
+- **Pages:** `/da/stroemafbrud/` and `/outages/` (live list, postcode filter saved in "my place", what to do in an outage, every grid company's phone number and outage page); an "outages now" block on each grid-company page; a notice on the home page when your grid company has an outage.
+
 ### 17.5 Public charging (spec — parked 2026-10-31)
 
 **Parked:** without contacting anyone only Spirii's feed is usable (~2,300 sites, roughly a quarter of public chargers); Clever, Circle K, IONITY, Monta, Norlys, E.ON, OK and Tesla all need a token, account or agreement. A comparison missing the largest operators would mislead. Revisit when the EU's common access point (due by end of 2026) or a Danish equivalent of Finland's open Digitraffic service publishes the data openly. The notes below stay as the spec for that day.

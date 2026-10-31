@@ -17,8 +17,10 @@ const recent = new Map<Task, TaskState>([
   ['tariffs', done(at('02:00'))],
   ['cleanup', done(at('02:00'))],
 ]);
+const OUTAGE_TASKS: Task[] = ['outages', 'outages_planned'];
+/** Due tasks apart from the outage portal's, which have their own test below. */
 const due = (hhmm: string, states: Map<Task, TaskState> = recent) =>
-  dueTasks(clockAt(at(hhmm)), states);
+  dueTasks(clockAt(at(hhmm)), states).filter((t) => !OUTAGE_TASKS.includes(t));
 
 describe('dueTasks', () => {
   it('polls day-ahead prices every 5 minutes around publication', () => {
@@ -54,6 +56,17 @@ describe('dueTasks', () => {
     expect(due('03:30')).toContain('cleanup');
     expect(due('03:35')).not.toContain('cleanup');
     expect(due('10:10', new Map([['tariffs', done(at('02:00'))]]))).toEqual(['cleanup']);
+  });
+
+  it('fetches current outages every tick and planned work hourly at :05', () => {
+    const planned = new Map(recent).set('outages_planned', done(at('09:05')));
+    const outages = (hhmm: string) =>
+      dueTasks(clockAt(at(hhmm)), planned).filter((t) => OUTAGE_TASKS.includes(t));
+    expect(outages('09:30')).toEqual(['outages']);
+    expect(outages('10:05')).toEqual(['outages', 'outages_planned']);
+    expect(outages('10:10')).toEqual(['outages']);
+    // More than two hours without planned work: fetch it straight away.
+    expect(outages('11:20')).toEqual(['outages', 'outages_planned']);
   });
 
   it('skips a task while it backs off after a rate limit', () => {
