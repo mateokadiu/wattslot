@@ -687,6 +687,8 @@ _Deliberately not:_ redirects by browser language (they confuse crawlers).
 
 Research for two new features (outages, public charging) landed on 2026-10-29; this section decides how they fit with what exists, and in what order everything is built.
 
+**Rule (owner, 2026-10-31): no contacting companies.** Features are built only from data that is published openly — no emails, tokens, accounts or agreements. Where that isn't enough for an honest feature, the feature waits.
+
 ### 17.1 The main feature
 
 **wattslot answers one question: when should I use electricity, judged by what I actually pay?** The live all-in price, the verdict ("good time" / "wait until 14:00"), and the cheapest time for a task — deepened in Phase 2 into plans and reminders. It is the only part that is genuinely unique (the full price per 15 minutes, resolved per grid company) and the only part people would use daily.
@@ -728,14 +730,13 @@ Phase 2's plans live inside the home page (the task card becomes "plan it"), not
 
 ### 17.3 Roadmap
 
-| Step | Scope                                                                                           | Size      | Waits on                                         |
-| ---- | ----------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------ |
-| 0    | Permission emails: Green Power Denmark (outage API), Spirii (reuse terms), Eco-Movement (token) | —         | **Owner sends**                                  |
-| 1    | Navigation + "my place" (postcode field, grid company lookup if GPD's lookup API allows it)     | ~1 day    | —                                                |
-| 2    | Outages v1 (§17.4)                                                                              | ~2–3 days | Launch after GPD replies                         |
-| 3    | Phase 2: plans, Web Push, iCal (§15)                                                            | ~5–7 days | —                                                |
-| 4    | Charging v1 (§17.5)                                                                             | ~4–6 days | Spirii terms; Eco-Movement token widens coverage |
-| 5    | S4 distribution + Phase 3 integrations                                                          | ongoing   | —                                                |
+| Step | Scope                                                                                       | Size      | Waits on                                                    |
+| ---- | ------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------- |
+| 1    | Navigation + "my place" (postcode field, grid company lookup if GPD's lookup API allows it) | ~1 day    | —                                                           |
+| 2    | Outages v1 (§17.4)                                                                          | ~2–3 days | —                                                           |
+| 3    | Phase 2: plans, Web Push, iCal (§15)                                                        | ~5–7 days | —                                                           |
+| 4    | S4 distribution + Phase 3 integrations                                                      | ongoing   | —                                                           |
+| —    | Charging (§17.5)                                                                            | ~4–6 days | **Parked** until the data is open without contacting anyone |
 
 Outages come before Phase 2 because they are small, ride on the existing cron, and every outage is a traffic spike that lands people on the core. If interviews matter more than traffic, swap 2 and 3.
 
@@ -749,9 +750,12 @@ _Research 2026-10-29, verified by fetching:_ Danish grid companies report outage
 - **API:** `GET /v1/outages?gln=|zone=|postcode=`, edge-cached 60 s.
 - **Pages:** national list (server-rendered shell, client refresh) + lazy map; your postcode/company first; per-company block on grid-company pages with 90-day counts from the build.
 - **Attribution:** "Kilde: netselskaberne via Green Power Denmark", link to each company's own outage page.
-- **Risks:** undocumented API that could change or close (mitigation: written permission, a health check that degrades gracefully); reporting completeness varies by company.
+- **Without contacting anyone:** the API is public (no login, key or terms), the companies' own sites call it from visitors' browsers, and elnet.dk says the API can be used to show its results on your own website. Poll politely (5 min, identifying User-Agent), credit the source, link each company's page, never bulk-copy the history, and keep one switch to turn the feature off if anyone objects. Not legal advice: repeated extraction of a whole database is a grey area under the EU database right; current outages with attribution, as the companies' own sites show them, is low-risk.
+- **Risks:** undocumented API that could change or close (mitigation: a health check that degrades gracefully, and the off switch); reporting completeness varies by company.
 
-### 17.5 Public charging (spec)
+### 17.5 Public charging (spec — parked 2026-10-31)
+
+**Parked:** without contacting anyone only Spirii's feed is usable (~2,300 sites, roughly a quarter of public chargers); Clever, Circle K, IONITY, Monta, Norlys, E.ON, OK and Tesla all need a token, account or agreement. A comparison missing the largest operators would mislead. Revisit when the EU's common access point (due by end of 2026) or a Danish equivalent of Finland's open Digitraffic service publishes the data openly. The notes below stay as the spec for that day.
 
 _Research 2026-10-29:_ AFIR obliges operators to publish locations, availability and the ad hoc price for free. Since 14 April 2026 Denmark requires **DATEX II**, not OCPI (verified on fstyr.dk). The national access point (Vejdirektoratet's Dataudveksleren) is a **catalogue of per-operator endpoints**, not a central API. Sources:
 
@@ -770,11 +774,10 @@ Realistic coverage: ~60% of Denmark's ~50,000 public charge points with Spirii +
 - **Labels:** "ad hoc price (without app/subscription)"; source and licence per operator.
 - **Risks:** data terms (Spirii unstated), token access at the provider's discretion, normalisation edge cases, the 60-day inactivity pause of scheduled GitHub workflows.
 
-### 17.6 Decisions for the owner
+### 17.6 Decisions
 
-1. Confirm the main feature (§17.1) and the order (§17.3: outages before Phase 2).
-2. Send the three permission/token emails (step 0).
-3. Approve creating a free R2 bucket and an R2 API token for the charging ingest (Cloudflare dashboard, done by the owner).
+1. Main feature (§17.1) and order (§17.3): open.
+2. No contacting companies: decided 2026-10-31; charging parked accordingly.
 
 ---
 
