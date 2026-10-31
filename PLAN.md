@@ -716,6 +716,8 @@ Everything else is a **satellite**: it serves the same household, brings its own
 | Grid companies | `/da/netselskaber/` | `/grid-companies/` | Existing directory (S3)                                              |
 | Guides         | `/da/guides/`       | `/guides/`         | Existing (S3)                                                        |
 
+_Later:_ detect the grid company from an address. Green Power Denmark's map stores grid areas as shapes under supplier 79 ("Områder"); with an open address lookup this could replace picking from a list — not verified, not scheduled.
+
 Phase 2's plans live inside the home page (the task card becomes "plan it"), not as a separate section. Grid-company pages gain an "outages now" block. On phones the navigation is a scrollable row under the logo.
 
 **Where things run** (all on free plans):
@@ -730,13 +732,13 @@ Phase 2's plans live inside the home page (the task card becomes "plan it"), not
 
 ### 17.3 Roadmap
 
-| Step | Scope                                                                                       | Size      | Waits on                                                    |
-| ---- | ------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------- |
-| 1    | Navigation + "my place" (postcode field, grid company lookup if GPD's lookup API allows it) | ~1 day    | —                                                           |
-| 2    | Outages v1 (§17.4)                                                                          | ~2–3 days | —                                                           |
-| 3    | Phase 2: plans, Web Push, iCal (§15)                                                        | ~5–7 days | —                                                           |
-| 4    | S4 distribution + Phase 3 integrations                                                      | ongoing   | —                                                           |
-| —    | Charging (§17.5)                                                                            | ~4–6 days | **Parked** until the data is open without contacting anyone |
+| Step | Scope                                                                                                                                                                                          | Size      | Waits on                                                    |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------- |
+| 1    | ✅ Navigation + "my place" (done 2026-10-31): top navigation with the current section; one browser store shared by the live view, a header chip and "this is my grid company" on company pages | ~1 day    | —                                                           |
+| 2    | Outages v1 (§17.4), with a postcode in "my place"                                                                                                                                              | ~2–3 days | —                                                           |
+| 3    | Phase 2: plans, Web Push, iCal (§15)                                                                                                                                                           | ~5–7 days | —                                                           |
+| 4    | S4 distribution + Phase 3 integrations                                                                                                                                                         | ongoing   | —                                                           |
+| —    | Charging (§17.5)                                                                                                                                                                               | ~4–6 days | **Parked** until the data is open without contacting anyone |
 
 Outages come before Phase 2 because they are small, ride on the existing cron, and every outage is a traffic spike that lands people on the core. If interviews matter more than traffic, swap 2 and 3.
 

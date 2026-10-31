@@ -7,6 +7,7 @@ import {
   companyFacts,
   companyPeriods,
   companyTariffs,
+  gridCompanyList,
 } from '@/lib/load-facts';
 import { pageMetadata } from '@/lib/metadata';
 import { areaRoute, COMPANIES_HUB, companyRoute } from '@/lib/routes';
@@ -15,6 +16,7 @@ import { pageGraph } from '@/lib/structured-data';
 import { type TariffPeriod, tariffShape } from '@/lib/tariffs';
 import { Breadcrumbs } from './Breadcrumbs';
 import { DayFacts } from './DayFacts';
+import { SetPlaceButton } from './SetPlaceButton';
 import { SiteFrame } from './SiteFrame';
 import { TariffTable } from './TariffTable';
 
@@ -120,6 +122,12 @@ export function CompanyPage({ slug, locale }: { slug: string; locale: L }) {
             company.areas.length,
           )}
         </p>
+        <SetPlaceButton
+          locale={locale}
+          zone={company.zone}
+          gln={gln}
+          name={gridCompanyList().find((g) => g.gln === gln)?.name ?? company.legalName}
+        />
         <p>
           <a href={live}>{d.liveWith(company.name)} →</a>
         </p>

@@ -9,6 +9,7 @@ import type { PriceSlot } from '@/lib/chart';
 import { clock, duration, kwh, perKwh, price } from '@/lib/format';
 import { type Dictionary, dictionaries, LOCALES, type Locale } from '@/lib/i18n';
 import { planTask, SLOT_MS, slotsFor, TASKS, type Task, verdict } from '@/lib/insights';
+import { readPrefs as readStoredPrefs, writePrefs } from '@/lib/place';
 import { type ChartMode, PriceChart } from './PriceChart';
 
 /** Same size as a picker, so the lazily loaded controls replace it without moving the page. */
@@ -37,7 +38,6 @@ const DEFAULTS = {
   task: 'dishwasher',
   mode: 'level' as ChartMode,
 };
-const STORAGE_KEY = 'wattslot:prefs';
 const DAY_MS = 24 * 3_600_000;
 
 interface Prefs {
@@ -45,23 +45,27 @@ interface Prefs {
   gln: string;
   task: string;
   mode: ChartMode;
+  /** See StoredPrefs: the company's name, and whether the visitor chose this place. */
+  name: string | null;
+  chosen: boolean;
 }
 
-function readPrefs(defaultZone: string): Prefs {
+function initialPrefs(defaultZone: string): Prefs {
   const url = new URLSearchParams(window.location.search);
-  let stored: Partial<Prefs> = {};
-  try {
-    stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<Prefs>;
-  } catch {
-    stored = {};
-  }
+  const stored = readStoredPrefs();
   const task = url.get('task') ?? stored.task ?? DEFAULTS.task;
   const mode = url.get('view') ?? stored.mode ?? DEFAULTS.mode;
+  const zone = url.get('zone') ?? stored.zone ?? defaultZone;
+  const gln = url.get('gln') ?? stored.gln ?? DEFAULTS.gln;
+  // A shared link can show another place; it only becomes "yours" when you pick it.
+  const same = zone === stored.zone && gln === (stored.gln ?? '');
   return {
-    zone: url.get('zone') ?? stored.zone ?? defaultZone,
-    gln: url.get('gln') ?? stored.gln ?? DEFAULTS.gln,
+    zone,
+    gln,
     task: TASKS.some((t) => t.id === task) ? task : DEFAULTS.task,
     mode: mode === 'breakdown' ? 'breakdown' : 'level',
+    name: same ? (stored.name ?? null) : null,
+    chosen: same && stored.chosen === true,
   };
 }
 
@@ -74,11 +78,11 @@ function savePrefs(prefs: Prefs) {
   if (prefs.mode === 'breakdown') url.searchParams.set('view', 'breakdown');
   else url.searchParams.delete('view');
   window.history.replaceState(null, '', url);
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-  } catch {
-    // private browsing: preferences just aren't remembered
-  }
+  const stored = readStoredPrefs();
+  // Looking at a shared link doesn't overwrite the place you chose.
+  writePrefs(
+    prefs.chosen || !stored.chosen ? prefs : { ...stored, task: prefs.task, mode: prefs.mode },
+  );
 }
 
 const toSlot = (s: Prices['slots'][number]): PriceSlot => ({
@@ -110,7 +114,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
   const [nowMs, setNowMs] = useState(0);
 
   useEffect(() => {
-    setPrefs(readPrefs(defaultZone));
+    setPrefs(initialPrefs(defaultZone));
     setNowMs(Date.now());
     const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
     getJson<{ zones: Zone[] }>('/v1/zones')
@@ -127,7 +131,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
     if (!prefs || !zone) return;
     if (!zone.fullPrice) {
       setCompanies([]);
-      if (prefs.gln) setPrefs({ ...prefs, gln: '' });
+      if (prefs.gln) setPrefs({ ...prefs, gln: '', name: null });
       return;
     }
     const controller = new AbortController();
@@ -138,7 +142,11 @@ export function Dashboard({ locale }: { locale: Locale }) {
       .then(({ gridCompanies }) => {
         setCompanies(gridCompanies);
         if (!gridCompanies.some((g) => g.gln === prefs.gln)) {
-          setPrefs({ ...prefs, gln: gridCompanies.find((g) => g.supported)?.gln ?? '' });
+          setPrefs({
+            ...prefs,
+            gln: gridCompanies.find((g) => g.supported)?.gln ?? '',
+            name: null,
+          });
         }
       })
       .catch(() => controller.signal.aborted || setState('error'));
@@ -266,7 +274,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
           t={t}
           zones={zones}
           value={prefs?.zone ?? defaultZone}
-          onChange={(z) => update({ zone: z })}
+          onChange={(z) => update({ zone: z, name: null, chosen: true })}
         />
         <GridCompanyPicker
           t={t}
@@ -274,7 +282,13 @@ export function Dashboard({ locale }: { locale: Locale }) {
           companies={companies}
           value={prefs?.gln ?? ''}
           disabled={!zone?.fullPrice}
-          onChange={(gln) => update({ gln })}
+          onChange={(gln) =>
+            update({
+              gln,
+              name: companies.find((g) => g.gln === gln)?.name ?? null,
+              chosen: true,
+            })
+          }
         />
       </div>
 
