@@ -1,6 +1,13 @@
 // An explicit import (not the ambient Workers global) so tests type-check under Node too.
 import type { D1Database } from '@cloudflare/workers-types';
-import { type Plan, planEnergy, runFrom, type ScoredSlot, slotCount } from '@wattslot/planner';
+import {
+  type Plan,
+  planEnergy,
+  type Run,
+  runFrom,
+  type ScoredSlot,
+  slotCount,
+} from '@wattslot/planner';
 import {
   addDays,
   estimateCo2,
@@ -18,9 +25,10 @@ import {
 import type { Db } from '../ingest/store.ts';
 import { loadZone, type PricedRange, priceRange, spotSlots, type Zone } from '../prices/service.ts';
 
-// The plan preview (PLAN.md §17.7): three ways to run a load in a window — cheapest, balanced
-// and greenest — with what each costs and emits, against starting now and a midnight timer.
-// Nothing is stored. Slots without a published price use an estimate (§8.4).
+// Planning a load (PLAN.md §17.7): three ways to run it in a window — cheapest, balanced and
+// greenest — with what each costs and emits, against starting now and a midnight timer. The
+// preview shows them; a saved job stores one. Slots without a published price use an estimate
+// (§8.4).
 
 export interface PreviewRequest {
   zone: string;
@@ -56,14 +64,32 @@ export interface Summary {
   estimated: boolean;
 }
 
+/** What storing a plan needs beyond its summary (never sent to the browser). */
+export interface PlanDetail {
+  costMicro: number;
+  co2Grams: number | null;
+  runs: Run[];
+  slots: {
+    startMs: number;
+    energyWh: number;
+    priceMicro: number;
+    co2: number | null;
+    estimated: boolean;
+  }[];
+}
+
+export interface Planned extends Summary {
+  detail: PlanDetail;
+}
+
 export interface Preview {
   priced: PricedRange;
   fromMs: number;
   toMs: number;
   /** Start of the first estimated slot in the window, or null when every price is published. */
   estimatedFromMs: number | null;
-  options: ({ kind: OptionKind } & Summary)[];
-  baselines: { startNow: Summary | null; midnight: (Summary & { start: string }) | null };
+  options: ({ kind: OptionKind } & Planned)[];
+  baselines: { startNow: Planned | null; midnight: (Planned & { start: string }) | null };
 }
 
 /** Counted as CO₂ only, with cost a distant tie-break. */
@@ -163,17 +189,31 @@ export function midnightStart(fromMs: number, timeZone: string): number {
   return localMidnight(addDays(local.date, 1), timeZone);
 }
 
-function summarize(plan: Plan, bySlot: ReadonlyMap<number, Slot>): Summary {
+function summarize(plan: Plan, bySlot: ReadonlyMap<number, Slot>): Planned {
   let costMicro = 0;
   let co2G: number | null = 0;
   let estimated = false;
+  const slots: PlanDetail['slots'] = [];
   for (const p of plan.slots) {
     const slot = bySlot.get(p.startMs) as Slot;
     costMicro += (slot.total * p.energyWh) / 1000;
     co2G = co2G === null || slot.co2 === null ? null : co2G + (slot.co2 * p.energyWh) / 1000;
     estimated ||= slot.estimated;
+    slots.push({
+      startMs: p.startMs,
+      energyWh: p.energyWh,
+      priceMicro: slot.total,
+      co2: slot.co2,
+      estimated: slot.estimated,
+    });
   }
   return {
+    detail: {
+      costMicro: Math.round(costMicro),
+      co2Grams: co2G,
+      runs: plan.runs,
+      slots,
+    },
     runs: plan.runs.map((r) => ({
       start: iso(r.startMs),
       end: iso(r.endMs),

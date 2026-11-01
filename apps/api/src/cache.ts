@@ -21,7 +21,8 @@ const maxAgeOf = (cacheControl: string | null) => {
  * (The Cache API is a no-op on *.workers.dev; it takes effect on the custom domain.)
  */
 export const edgeCache: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (c.req.method !== 'GET') return next();
+  // The cache is keyed by URL alone: anything personal must never go through it.
+  if (c.req.method !== 'GET' || c.req.header('authorization')) return next();
   const cache = caches.default;
   const key = new Request(c.req.url, { method: 'GET' });
   const now = Date.now();

@@ -6,6 +6,7 @@ import { edgeCache } from './cache.ts';
 import type { AppEnv, Env } from './env.ts';
 import { runScheduled } from './ingest/run.ts';
 import { RequestError } from './prices/service.ts';
+import { jobRoutes } from './routes/jobs.ts';
 import { outageRoutes } from './routes/outages.ts';
 import { planRoutes } from './routes/plans.ts';
 import { priceRoutes } from './routes/prices.ts';
@@ -25,8 +26,8 @@ app.use('*', async (c, next) => {
 app.get('/health', (c) => c.json({ ok: true }));
 
 app.use('*', secureHeaders());
-// Public data any site may read from a browser (POST only to compute a preview). No cookies, so
-// no credentials.
+// Any site may call the API from a browser. There are no cookies: saved plans are reached with a
+// bearer token the caller holds, so a cross-site request can't act on someone else's behalf.
 app.use('/v1/*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'OPTIONS'], maxAge: 86_400 }));
 app.use('/openapi.json', cors({ origin: '*', allowMethods: ['GET'] }));
 app.use('/v1/*', async (c, next) => {
@@ -40,6 +41,13 @@ app.route('/v1', priceRoutes);
 app.route('/v1', tariffRoutes);
 app.route('/v1', outageRoutes);
 app.route('/v1', planRoutes);
+app.route('/v1', jobRoutes);
+
+app.openAPIRegistry.registerComponent('securitySchemes', 'ownerToken', {
+  type: 'http',
+  scheme: 'bearer',
+  description: 'The owner token from POST /v1/owners',
+});
 
 app.doc31('/openapi.json', {
   openapi: '3.1.0',
@@ -70,3 +78,5 @@ export default {
     ctx.waitUntil(runScheduled(env, controller.scheduledTime));
   },
 } satisfies ExportedHandler<Env>;
+
+export { JobWorkflow } from './jobs/workflow.ts';

@@ -187,22 +187,42 @@ const tariffs: Runner = async ({ db, d1, eds, clock }) => {
  */
 export const RETENTION_DAYS = 400;
 const OUTAGE_RETENTION_DAYS = 30;
+const JOB_RETENTION_DAYS = 7;
+const OWNER_RETENTION_DAYS = 90;
 
 const cleanup: Runner = async ({ d1, clock }) => {
   const beforeMs = clock.nowMs - RETENTION_DAYS * 86_400_000;
-  const [spot, co2, outages] = await d1.batch([
+  const [spot, co2, outages, stuck, jobs, owners] = await d1.batch([
     d1.prepare('delete from spot_prices where slot_start_ms < ?').bind(beforeMs),
     d1.prepare('delete from co2_intensity where time_ms < ?').bind(beforeMs),
     // Outages are only shown while current; keep ended ones a month, then let them go.
     d1
       .prepare('delete from outages where gone_ms < ?')
       .bind(clock.nowMs - OUTAGE_RETENTION_DAYS * 86_400_000),
+    // A job still live a day after its deadline lost its workflow somehow: call it failed.
+    d1
+      .prepare(
+        `update jobs set status = 'failed', ended_at_ms = ?1
+         where status in ('planned', 'running') and deadline_ms < ?1 - 86400000`,
+      )
+      .bind(clock.nowMs),
+    // Saved plans (PLAN.md §17.7, P2-3): a week after they end; owners after 90 days unseen,
+    // with everything they hold (ON DELETE CASCADE). The privacy page promises both.
+    d1
+      .prepare('delete from jobs where ended_at_ms < ?')
+      .bind(clock.nowMs - JOB_RETENTION_DAYS * 86_400_000),
+    d1
+      .prepare('delete from owners where last_seen_ms < ?')
+      .bind(clock.nowMs - OWNER_RETENTION_DAYS * 86_400_000),
   ]);
   return {
     before: new Date(beforeMs).toISOString(),
     spotPrices: spot?.meta.changes ?? 0,
     co2: co2?.meta.changes ?? 0,
     outages: outages?.meta.changes ?? 0,
+    failedJobs: stuck?.meta.changes ?? 0,
+    jobs: jobs?.meta.changes ?? 0,
+    owners: owners?.meta.changes ?? 0,
   };
 };
 

@@ -1,6 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { openDb } from '../ingest/store.ts';
-import { planPreview, WindowTooShortError } from '../plans/preview.ts';
+import { type Planned, planPreview, WindowTooShortError } from '../plans/preview.ts';
 import { ErrorBody, router } from '../router.ts';
 
 const HOUR_MS = 3_600_000;
@@ -8,19 +8,21 @@ const HOUR_MS = 3_600_000;
 export const MAX_AHEAD_MS = 48 * HOUR_MS;
 
 const iso = (ms: number) => new Date(ms).toISOString();
+/** A plan as the API shows it: without the per-slot detail kept for storage. */
+export const publicSummary = <T extends Planned>({ detail: _, ...summary }: T) => summary;
 const error = (description: string) => ({
   description,
   content: { 'application/json': { schema: ErrorBody } },
 });
 
-const Run = z.object({
+export const RunBody = z.object({
   start: z.string(),
   end: z.string(),
   energyWh: z.number().int(),
 });
 
 const SummaryBody = {
-  runs: z.array(Run).openapi({ description: 'When to run: back-to-back slots merged' }),
+  runs: z.array(RunBody).openapi({ description: 'When to run: back-to-back slots merged' }),
   cost: z.number().openapi({ description: 'In the zone currency, all included as in /v1/prices' }),
   co2Kg: z.number().nullable(),
   estimated: z.boolean().openapi({ description: 'True if any price in it is an estimate' }),
@@ -30,40 +32,53 @@ const Option = z
   .object({ kind: z.enum(['cheapest', 'balanced', 'greenest']), ...SummaryBody })
   .openapi('PlanOption');
 
-const PreviewBody = z
-  .object({
-    zone: z
-      .string()
-      .regex(/^[A-Z]{2}\d?$/)
-      .openapi({ example: 'DK2' }),
-    gln: z
-      .string()
-      .regex(/^\d{13}$/)
-      .optional()
-      .openapi({
-        example: '5790000705689',
-        description: 'Grid company GLN; needed for full prices',
-      }),
-    markup: z.number().min(0).max(10).default(0).openapi({
-      description: "Your supplier's markup per kWh, excluding VAT",
+/** The load and its window: shared by the preview and by saving a plan (routes/jobs.ts). */
+export const LoadFields = {
+  zone: z
+    .string()
+    .regex(/^[A-Z]{2}\d?$/)
+    .openapi({ example: 'DK2' }),
+  gln: z
+    .string()
+    .regex(/^\d{13}$/)
+    .optional()
+    .openapi({
+      example: '5790000705689',
+      description: 'Grid company GLN; needed for full prices',
     }),
-    energyWh: z.number().int().min(1).max(100_000).openapi({ example: 1100 }),
-    maxPowerW: z.number().int().min(1).max(22_000).openapi({ example: 550 }),
-    contiguous: z.boolean().openapi({
-      description: "true for loads that can't pause once started (a dishwasher programme)",
-    }),
-    earliest: z.iso
-      .datetime({ offset: true })
-      .optional()
-      .openapi({ description: 'Defaults to now' }),
-    deadline: z.iso
-      .datetime({ offset: true })
-      .openapi({ description: 'Done by; at most 48 hours ahead' }),
-    co2Price: z.number().min(0).max(100).default(1).openapi({
-      description: 'What 1 kg of CO₂ counts as in the balanced option, in the zone currency',
-    }),
-  })
-  .openapi('PlanPreviewRequest');
+  markup: z.number().min(0).max(10).default(0).openapi({
+    description: "Your supplier's markup per kWh, excluding VAT",
+  }),
+  energyWh: z.number().int().min(1).max(100_000).openapi({ example: 1100 }),
+  maxPowerW: z.number().int().min(1).max(22_000).openapi({ example: 550 }),
+  contiguous: z.boolean().openapi({
+    description: "true for loads that can't pause once started (a dishwasher programme)",
+  }),
+  earliest: z.iso.datetime({ offset: true }).optional().openapi({ description: 'Defaults to now' }),
+  deadline: z.iso
+    .datetime({ offset: true })
+    .openapi({ description: 'Done by; at most 48 hours ahead' }),
+  co2Price: z.number().min(0).max(100).default(1).openapi({
+    description: 'What 1 kg of CO₂ counts as in the balanced option, in the zone currency',
+  }),
+};
+
+const PreviewBody = z.object(LoadFields).openapi('PlanPreviewRequest');
+
+/** What's wrong with a window, in words for a 400, or null if nothing is. */
+export function windowProblem(
+  deadlineMs: number,
+  earliestMs: number | undefined,
+  nowMs: number,
+): string | null {
+  if (deadlineMs <= nowMs) return '`deadline` must be in the future.';
+  if (deadlineMs > nowMs + MAX_AHEAD_MS + HOUR_MS)
+    return '`deadline` can be at most 48 hours ahead.';
+  if (earliestMs !== undefined && earliestMs >= deadlineMs) {
+    return '`earliest` must be before `deadline`.';
+  }
+  return null;
+}
 
 const previewRoute = createRoute({
   method: 'post',
@@ -110,14 +125,8 @@ export const planRoutes = router().openapi(previewRoute, async (c) => {
   const nowMs = Date.now();
   const deadlineMs = Date.parse(body.deadline);
   const earliestMs = body.earliest ? Date.parse(body.earliest) : undefined;
-  const invalid = (message: string) => c.json({ error: 'invalid_request', message }, 400);
-  if (deadlineMs <= nowMs) return invalid('`deadline` must be in the future.');
-  if (deadlineMs > nowMs + MAX_AHEAD_MS + HOUR_MS) {
-    return invalid('`deadline` can be at most 48 hours ahead.');
-  }
-  if (earliestMs !== undefined && earliestMs >= deadlineMs) {
-    return invalid('`earliest` must be before `deadline`.');
-  }
+  const problem = windowProblem(deadlineMs, earliestMs, nowMs);
+  if (problem) return c.json({ error: 'invalid_request', message: problem }, 400);
 
   try {
     const p = await planPreview(
@@ -138,8 +147,11 @@ export const planRoutes = router().openapi(previewRoute, async (c) => {
         to: iso(p.toMs),
         provisional: p.estimatedFromMs !== null,
         estimatedFrom: p.estimatedFromMs === null ? null : iso(p.estimatedFromMs),
-        options: p.options,
-        baselines: p.baselines,
+        options: p.options.map(publicSummary),
+        baselines: {
+          startNow: p.baselines.startNow && publicSummary(p.baselines.startNow),
+          midnight: p.baselines.midnight && publicSummary(p.baselines.midnight),
+        },
         message: p.options.length === 0 ? 'Not enough prices in this window yet to plan it.' : null,
       },
       200,

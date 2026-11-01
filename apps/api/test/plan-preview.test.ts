@@ -171,6 +171,8 @@ describe('POST /v1/plan-preview', () => {
     };
     expect(json.provisional).toBe(true);
     expect(json.options.map((o) => o.kind)).toEqual(['cheapest', 'balanced', 'greenest']);
+    // What storing a plan needs stays on the server.
+    expect(JSON.stringify(json)).not.toContain('detail');
     expect(json.message).toBeNull();
   });
 

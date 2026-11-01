@@ -38,6 +38,8 @@ beforeAll(async () => {
     mainFields: ['module', 'main'],
     conditions: ['workerd', 'worker', 'import'],
     target: 'es2022',
+    // Workers runtime modules (the Workflows base class) are provided by workerd.
+    external: ['cloudflare:*'],
     write: false,
     logLevel: 'silent',
   });
@@ -210,6 +212,10 @@ describe('api', () => {
       '/v1/tariffs',
       '/v1/outages',
       '/v1/plan-preview',
+      '/v1/owners',
+      '/v1/owners/me',
+      '/v1/jobs',
+      '/v1/jobs/{id}',
     ]);
   });
 });

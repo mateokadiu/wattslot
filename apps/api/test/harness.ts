@@ -46,6 +46,9 @@ export interface Harness {
   /** Fires the cron at a Danish local time on 28 Oct 2026 (CET). */
   tick(hhmm: string): Promise<void>;
   get(path: string): Promise<Response>;
+  /** Starts the job workflow for a job already in the database. */
+  startWorkflow(jobId: string): Promise<void>;
+  workflowStatus(jobId: string): Promise<{ status: string; output?: unknown }>;
   dispose(): Promise<void>;
 }
 
@@ -64,6 +67,8 @@ export async function startWorker(bindings: Record<string, string> = {}): Promis
     mainFields: ['module', 'main'],
     conditions: ['workerd', 'worker', 'import'],
     target: 'es2022',
+    // Workers runtime modules (the Workflows base class) are provided by workerd.
+    external: ['cloudflare:*'],
     write: false,
     logLevel: 'silent',
   });
@@ -71,37 +76,65 @@ export async function startWorker(bindings: Record<string, string> = {}): Promis
   const urls: URL[] = [];
   const rateLimited = new Set<string>();
   const overrides = new Map<string, string>();
+  const outboundService = (request: Request) => {
+    const url = new URL(request.url);
+    // Outage portal lists share a path; tell them apart by showType ("incidents:2").
+    const dataset = url.hostname.endsWith('greenpowerdenmark.dk')
+      ? `incidents:${url.searchParams.get('showType')}`
+      : (url.pathname.split('/').pop() ?? '');
+    calls.push(dataset);
+    urls.push(url);
+    if (rateLimited.has(dataset)) {
+      return new Response(fixtureText('error-429.json'), { status: 429 });
+    }
+    const override = overrides.get(dataset);
+    if (override !== undefined) {
+      return new Response(override, { headers: { 'content-type': 'application/json' } });
+    }
+    if (dataset.startsWith('incidents:')) {
+      return new Response('[]', { headers: { 'content-type': 'application/json' } });
+    }
+    const name = FIXTURES[dataset];
+    return name
+      ? new Response(fixtureText(name), { headers: { 'content-type': 'application/json' } })
+      : new Response('unknown dataset', { status: 404 });
+  };
+  const database = `wattslot-${Math.random().toString(36).slice(2)}`;
   const mf = new Miniflare({
-    modules: true,
-    bindings,
-    script: bundle.outputFiles[0]?.text ?? '',
-    compatibilityDate: '2026-07-01',
-    d1Databases: { DB: `wattslot-${Math.random().toString(36).slice(2)}` },
-    outboundService: (request: Request) => {
-      const url = new URL(request.url);
-      // Outage portal lists share a path; tell them apart by showType ("incidents:2").
-      const dataset = url.hostname.endsWith('greenpowerdenmark.dk')
-        ? `incidents:${url.searchParams.get('showType')}`
-        : (url.pathname.split('/').pop() ?? '');
-      calls.push(dataset);
-      urls.push(url);
-      if (rateLimited.has(dataset)) {
-        return new Response(fixtureText('error-429.json'), { status: 429 });
-      }
-      const override = overrides.get(dataset);
-      if (override !== undefined) {
-        return new Response(override, { headers: { 'content-type': 'application/json' } });
-      }
-      if (dataset.startsWith('incidents:')) {
-        return new Response('[]', { headers: { 'content-type': 'application/json' } });
-      }
-      const name = FIXTURES[dataset];
-      return name
-        ? new Response(fixtureText(name), { headers: { 'content-type': 'application/json' } })
-        : new Response('unknown dataset', { status: 404 });
-    },
+    workers: [
+      {
+        name: 'api',
+        modules: true,
+        bindings,
+        script: bundle.outputFiles[0]?.text ?? '',
+        compatibilityDate: '2026-07-01',
+        d1Databases: { DB: database },
+        workflows: { JOB_WORKFLOW: { name: 'wattslot-jobs', className: 'JobWorkflow' } },
+        outboundService,
+      },
+      // Lets tests start and inspect job workflows directly, without the API's planning.
+      {
+        name: 'driver',
+        modules: true,
+        compatibilityDate: '2026-07-01',
+        workflows: {
+          JOB_WORKFLOW: { name: 'wattslot-jobs', className: 'JobWorkflow', scriptName: 'api' },
+        },
+        script: `export default {
+          async fetch(request, env) {
+            const url = new URL(request.url);
+            const id = url.searchParams.get('id');
+            if (url.pathname === '/create') {
+              await env.JOB_WORKFLOW.create({ id, params: { jobId: id } });
+              return new Response('created');
+            }
+            return Response.json(await (await env.JOB_WORKFLOW.get(id)).status());
+          },
+        };`,
+      },
+    ],
   });
-  const db = (await mf.getD1Database('DB')) as unknown as D1Database;
+  const db = (await mf.getD1Database('DB', 'api')) as unknown as D1Database;
   await db.batch(migrationStatements().map((sql) => db.prepare(sql)));
   return {
     mf,
@@ -111,10 +144,21 @@ export async function startWorker(bindings: Record<string, string> = {}): Promis
     rateLimited,
     overrides,
     async tick(hhmm) {
-      const worker = await mf.getWorker();
+      const worker = await mf.getWorker('api');
       await worker.scheduled({ scheduledTime: local(hhmm), cron: '*/5 * * * *' });
     },
     get: (path) => mf.dispatchFetch(`http://api${path}`),
+    async startWorkflow(jobId) {
+      const driver = await mf.getWorker('driver');
+      await (await driver.fetch(`http://driver/create?id=${jobId}`)).text();
+    },
+    async workflowStatus(jobId) {
+      const driver = await mf.getWorker('driver');
+      return (await (await driver.fetch(`http://driver/status?id=${jobId}`)).json()) as {
+        status: string;
+        output?: unknown;
+      };
+    },
     dispose: () => mf.dispose(),
   };
 }
