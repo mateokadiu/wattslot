@@ -18,6 +18,15 @@ export {
   ENERGINET_GLN,
 } from './dk.ts';
 export {
+  estimateCo2,
+  estimateSpot,
+  HISTORY_DAYS,
+  type HistoryClock,
+  historyClock,
+  historyTimes,
+  median,
+} from './estimate.ts';
+export {
   applyRate,
   fromMicro,
   MICRO_PER_UNIT,

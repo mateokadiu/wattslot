@@ -59,7 +59,7 @@ export function localTime(utcMs: number, timeZone: string): LocalTime {
 }
 
 /** Zone offset at an instant, in ms (Copenhagen: +1h in winter, +2h in summer). */
-function offsetMs(utcMs: number, timeZone: string): number {
+export function offsetMs(utcMs: number, timeZone: string): number {
   const w = wallParts(utcMs, timeZone);
   const asUtc = Date.UTC(w.year, w.month - 1, w.day, w.hour, w.minute, w.second);
   return asUtc - Math.floor(utcMs / 1000) * 1000;
