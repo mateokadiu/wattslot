@@ -43,8 +43,10 @@ async function contentKeys(
 }
 
 async function sharedSecret(privateKey: CryptoKey, publicKey: Bytes): Promise<Bytes> {
+  // The Workers types misname ECDH's `public` member; the runtime takes the standard name.
+  const algorithm = { name: 'ECDH', public: await importEcdhPublic(publicKey) };
   const bits = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: await importEcdhPublic(publicKey) },
+    algorithm as unknown as Parameters<SubtleCrypto['deriveBits']>[0],
     privateKey,
     256,
   );

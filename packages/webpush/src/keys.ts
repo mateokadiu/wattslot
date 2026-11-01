@@ -58,11 +58,14 @@ export async function generateKeyPair(): Promise<P256KeyPair> {
   const pair = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
     'deriveBits',
   ])) as CryptoKeyPair;
-  const publicKey = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
-  const { d } = await crypto.subtle.exportKey('jwk', pair.privateKey);
+  // Casts: the Workers types give exportKey one union return type for every format.
+  const publicKey = new Uint8Array(
+    (await crypto.subtle.exportKey('raw', pair.publicKey)) as ArrayBuffer,
+  );
+  const { d } = (await crypto.subtle.exportKey('jwk', pair.privateKey)) as JsonWebKey;
   if (!d) throw new Error('Key export returned no private scalar');
   return { publicKey: toBase64Url(publicKey), privateKey: d };
 }
 
 export const rawPublicKey = async (key: CryptoKey): Promise<Bytes> =>
-  concat(new Uint8Array(await crypto.subtle.exportKey('raw', key)));
+  concat(new Uint8Array((await crypto.subtle.exportKey('raw', key)) as ArrayBuffer));
