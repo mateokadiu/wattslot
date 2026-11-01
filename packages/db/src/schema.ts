@@ -384,17 +384,46 @@ export const integrations = sqliteTable(
   ],
 );
 
+/**
+ * A device that gets push notifications for an owner's plans (PLAN.md §17.7). The endpoint and
+ * keys are sealed together (envelope encryption under PUSH_KEK, associated data = owner id);
+ * only a SHA-256 of the endpoint is kept in the clear, to find a device again.
+ */
+export const pushSubscriptions = sqliteTable(
+  'push_subscriptions',
+  {
+    id: id(),
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => owners.id, { onDelete: 'cascade' }),
+    endpointHash: blob('endpoint_hash', { mode: 'buffer' }).notNull().unique(),
+    sealed: blob('sealed', { mode: 'buffer' }).notNull(),
+    wrappedKey: blob('wrapped_key', { mode: 'buffer' }).notNull(),
+    createdAtMs: createdAt(),
+    lastOkMs: integer('last_ok_ms'),
+    /** Consecutive failed sends; the subscription is dropped at five. */
+    failures: integer('failures').notNull().default(0),
+  },
+  (t) => [index('push_subscriptions_owner').on(t.ownerId)],
+);
+
+/** One message to one destination; the idempotency key stops a retried step sending twice. */
 export const deliveries = sqliteTable(
   'deliveries',
   {
     id: id(),
-    integrationId: text('integration_id')
-      .notNull()
-      .references(() => integrations.id, { onDelete: 'cascade' }),
+    /** Phase 3 integrations (webhooks, evcc, …). */
+    integrationId: text('integration_id').references(() => integrations.id, {
+      onDelete: 'cascade',
+    }),
+    subscriptionId: text('subscription_id').references(() => pushSubscriptions.id, {
+      onDelete: 'cascade',
+    }),
     planId: text('plan_id')
       .notNull()
       .references(() => plans.id, { onDelete: 'cascade' }),
-    action: text('action', { enum: ['notify', 'start', 'stop', 'push_plan'] }).notNull(),
+    /** `notify` for messages about the plan itself (saved, changed); the rest are its moments. */
+    action: text('action', { enum: ['notify', 'start', 'stop', 'finish', 'push_plan'] }).notNull(),
     idempotencyKey: text('idempotency_key').notNull().unique(),
     status: text('status', { enum: ['pending', 'ok', 'failed'] }).notNull(),
     attempts: integer('attempts').notNull().default(0),
@@ -402,8 +431,15 @@ export const deliveries = sqliteTable(
     createdAtMs: createdAt(),
   },
   (t) => [
-    check('deliveries_action', sql`${t.action} in ('notify', 'start', 'stop', 'push_plan')`),
+    check(
+      'deliveries_action',
+      sql`${t.action} in ('notify', 'start', 'stop', 'finish', 'push_plan')`,
+    ),
     check('deliveries_status', sql`${t.status} in ('pending', 'ok', 'failed')`),
+    check(
+      'deliveries_one_destination',
+      sql`(${t.integrationId} is null) != (${t.subscriptionId} is null)`,
+    ),
   ],
 );
 
