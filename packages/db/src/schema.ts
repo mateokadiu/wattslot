@@ -236,34 +236,65 @@ export const sites = sqliteTable('sites', {
   createdAtMs: createdAt(),
 });
 
+// Owners (Phase 2) ---------------------------------------------------------------------------
+
+/**
+ * Whoever saved plans on the public site: no account, just a random token kept in one browser
+ * (PLAN.md §17.7). Only SHA-256 hashes of tokens are stored.
+ */
+export const owners = sqliteTable(
+  'owners',
+  {
+    id: id(),
+    tokenHash: blob('token_hash', { mode: 'buffer' }).notNull().unique(),
+    /** Read-only calendar feed token (P2d); null until one is made. */
+    feedTokenHash: blob('feed_token_hash', { mode: 'buffer' }).unique(),
+    /** Language for notifications and calendar text. */
+    locale: text('locale', { enum: ['en', 'da', 'de', 'nb', 'sv'] }).notNull(),
+    createdAtMs: createdAt(),
+    lastSeenMs: integer('last_seen_ms').notNull().default(nowMs),
+  },
+  (t) => [check('owners_locale', sql`${t.locale} in ('en', 'da', 'de', 'nb', 'sv')`)],
+);
+
 // Jobs & plans -------------------------------------------------------------------------------
 
 export const jobs = sqliteTable(
   'jobs',
   {
     id: id(),
-    siteId: text('site_id')
+    ownerId: text('owner_id')
       .notNull()
-      .references(() => sites.id, { onDelete: 'cascade' }),
-    kind: text('kind', { enum: ['ev', 'appliance', 'heat_boost', 'custom'] }).notNull(),
+      .references(() => owners.id, { onDelete: 'cascade' }),
+    task: text('task', { enum: ['dishwasher', 'washing', 'dryer', 'ev'] }).notNull(),
+    zone: text('zone')
+      .notNull()
+      .references(() => priceZones.code),
+    /** Null → spot-only pricing. */
+    gridGln: text('grid_gln').references(() => gridCompanies.gln),
+    supplierMarkupMicro: integer('supplier_markup_micro').notNull().default(0),
+    /** What 1 kg of CO₂ counts as in the balanced objective, in micro-units of the currency. */
+    co2PriceMicroPerKg: integer('co2_price_micro_per_kg').notNull().default(1_000_000),
     energyWh: integer('energy_wh').notNull(),
     maxPowerW: integer('max_power_w').notNull(),
     earliestMs: integer('earliest_ms').notNull(),
     deadlineMs: integer('deadline_ms').notNull(),
-    contiguous: bool('contiguous').notNull().default(false),
-    minRunSlots: integer('min_run_slots').notNull().default(1),
-    objective: text('objective', { enum: ['cheapest', 'balanced', 'greenest'] })
-      .notNull()
-      .default('balanced'),
+    contiguous: bool('contiguous').notNull(),
+    objective: text('objective', { enum: ['cheapest', 'balanced', 'greenest'] }).notNull(),
     status: text('status', {
       enum: ['planned', 'running', 'done', 'cancelled', 'failed'],
     }).notNull(),
     workflowId: text('workflow_id').notNull().unique(),
+    /** Set when tomorrow's prices land and a provisional plan should be redone (P2d). */
+    replanRequestedMs: integer('replan_requested_ms'),
     createdAtMs: createdAt(),
+    /** When the job was done or cancelled; retention counts from here. */
+    endedAtMs: integer('ended_at_ms'),
   },
   (t) => [
-    index('jobs_site_status').on(t.siteId, t.status),
-    check('jobs_kind', sql`${t.kind} in ('ev', 'appliance', 'heat_boost', 'custom')`),
+    index('jobs_owner_status').on(t.ownerId, t.status),
+    index('jobs_status').on(t.status),
+    check('jobs_task', sql`${t.task} in ('dishwasher', 'washing', 'dryer', 'ev')`),
     check('jobs_objective', sql`${t.objective} in ('cheapest', 'balanced', 'greenest')`),
     check('jobs_status', sql`${t.status} in ('planned', 'running', 'done', 'cancelled', 'failed')`),
     check('jobs_window', sql`${t.deadlineMs} > ${t.earliestMs}`),
@@ -283,10 +314,15 @@ export const plans = sqliteTable(
       enum: ['created', 'prices_published', 'co2_updated', 'user_edit'],
     }).notNull(),
     provisional: bool('provisional').notNull(),
+    /** `[{ startMs, endMs, energyWh }]`: when to run, what notifications and calendars show. */
+    runs: text('runs', { mode: 'json' })
+      .notNull()
+      .$type<{ startMs: number; endMs: number; energyWh: number }[]>(),
     costMicro: integer('cost_micro').notNull(),
-    co2Grams: real('co2_grams').notNull(),
-    baselineNowMicro: integer('baseline_now_micro').notNull(),
-    baselineMidnightMicro: integer('baseline_midnight_micro').notNull(),
+    /** Null where the zone has no CO₂ data. */
+    co2Grams: real('co2_grams'),
+    baselineNowMicro: integer('baseline_now_micro'),
+    baselineMidnightMicro: integer('baseline_midnight_micro'),
     createdAtMs: createdAt(),
   },
   (t) => [
@@ -305,9 +341,10 @@ export const planSlots = sqliteTable(
       .notNull()
       .references(() => plans.id, { onDelete: 'cascade' }),
     slotStartMs: integer('slot_start_ms').notNull(),
-    energyWh: integer('energy_wh').notNull(),
+    /** Not always whole: the last slot of a plan is only as full as it needs to be. */
+    energyWh: real('energy_wh').notNull(),
     priceMicro: integer('price_micro').notNull(),
-    co2GPerKwh: real('co2_g_per_kwh').notNull(),
+    co2GPerKwh: real('co2_g_per_kwh'),
     estimated: bool('estimated').notNull(),
   },
   (t) => [
