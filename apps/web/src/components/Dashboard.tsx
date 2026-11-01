@@ -10,6 +10,7 @@ import type { PriceSlot } from '@/lib/chart';
 import { clock, duration, kwh, perKwh, price } from '@/lib/format';
 import { type Dictionary, dictionaries, LOCALES, type Locale } from '@/lib/i18n';
 import { planTask, SLOT_MS, slotsFor, TASKS, type Task, verdict } from '@/lib/insights';
+import { useHasOwner } from '@/lib/owner';
 import { readPrefs as readStoredPrefs, writePrefs } from '@/lib/place';
 import { type ChartMode, PriceChart } from './PriceChart';
 
@@ -35,6 +36,8 @@ const GridCompanyPicker = dynamic(() => import('./Pickers').then((m) => m.GridCo
 // The plan form loads when it's first wanted (or hovered), not with the page.
 const loadPlanDialog = () => import('./PlanDialog');
 const PlanDialog = dynamic(loadPlanDialog, { ssr: false });
+// Only a browser that has saved plans loads My plans.
+const MyPlans = dynamic(() => import('./MyPlans'), { ssr: false });
 
 // The default price area depends on the page's language; see LOCALES.
 const DEFAULTS = {
@@ -120,6 +123,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
   const [day, setDay] = useState<'today' | 'tomorrow'>('today');
   const [nowMs, setNowMs] = useState(0);
   const [planning, setPlanning] = useState(false);
+  const hasPlans = useHasOwner();
 
   useEffect(() => {
     setPrefs(initialPrefs(defaultZone));
@@ -431,6 +435,8 @@ export function Dashboard({ locale }: { locale: Locale }) {
           )}
         </article>
       </div>
+
+      {hasPlans && <MyPlans locale={locale} zones={zones} />}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <Stat label={t.cheapestHour}>

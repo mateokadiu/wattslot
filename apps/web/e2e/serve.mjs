@@ -118,6 +118,8 @@ const bundle = await build({
   mainFields: ['module', 'main'],
   conditions: ['workerd', 'worker', 'import'],
   target: 'es2022',
+  // Workers runtime modules (the Workflows base class) are provided by workerd.
+  external: ['cloudflare:*'],
   write: false,
   logLevel: 'silent',
 });

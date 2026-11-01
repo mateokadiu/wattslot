@@ -346,6 +346,19 @@ export const INFO: Record<InfoKey, { en: InfoContent; da: InfoContent }> = {
             aren’t sent anywhere, except the price area and grid company in the request for prices,
             which is needed to show them.
           </p>
+          <h2>Saved plans</h2>
+          <p>
+            If you save a plan, wattslot keeps it on its server so it can follow it through: what to
+            run (for example the dishwasher), its energy and power, the price area and grid company,
+            the time window, and the chosen times with their prices and CO₂. A plan is tied to a
+            random key that your browser keeps in local storage — not to a name, an email address,
+            an account or your IP address. The server stores only a fingerprint (hash) of the key.
+          </p>
+          <p>
+            Plans are deleted a week after they end. If a browser hasn’t visited for 90 days, its
+            key and everything saved with it are deleted. “Delete everything” under My plans removes
+            it all at once. If you clear your browser’s data, the plans can’t be reached again.
+          </p>
           <h2>What the server sees</h2>
           <p>
             The site runs on Cloudflare. Like any website, it processes your IP address to deliver
@@ -361,7 +374,7 @@ export const INFO: Record<InfoKey, { en: InfoContent; da: InfoContent }> = {
           <h2>Changes</h2>
           <p>
             If this ever changes — for example with cookie-free visitor statistics — this page will
-            say so first. Last updated 29 October 2026.
+            say so first. Last updated 1 November 2026.
           </p>
         </>
       ),
@@ -385,6 +398,20 @@ export const INFO: Record<InfoKey, { en: InfoContent; da: InfoContent }> = {
             bortset fra prisområde og netselskab i forespørgslen efter priser, som er nødvendig for
             at vise dem.
           </p>
+          <h2>Gemte planer</h2>
+          <p>
+            Gemmer du en plan, gemmer wattslot den på sin server, så den kan følges til ende: hvad
+            der skal køre (for eksempel opvaskemaskinen), energi og effekt, prisområde og
+            netselskab, tidsrummet og de valgte tidspunkter med deres priser og CO₂. En plan er
+            knyttet til en tilfældig nøgle, som din browser gemmer i local storage – ikke til et
+            navn, en e-mailadresse, en konto eller din IP-adresse. Serveren gemmer kun et
+            fingeraftryk (hash) af nøglen.
+          </p>
+          <p>
+            Planer slettes en uge efter, de er slut. Har en browser ikke været forbi i 90 dage,
+            slettes dens nøgle og alt, hvad der er gemt med den. »Slet alt« under Mine planer
+            fjerner det hele med det samme. Rydder du din browsers data, kan planerne ikke nås igen.
+          </p>
           <h2>Det, serveren ser</h2>
           <p>
             Siden kører hos Cloudflare. Som alle websites behandler den din IP-adresse for at levere
@@ -400,7 +427,7 @@ export const INFO: Record<InfoKey, { en: InfoContent; da: InfoContent }> = {
           <h2>Ændringer</h2>
           <p>
             Hvis det her ændrer sig – for eksempel med cookiefri besøgsstatistik – står det på denne
-            side først. Senest opdateret 29. oktober 2026.
+            side først. Senest opdateret 1. november 2026.
           </p>
         </>
       ),

@@ -98,3 +98,85 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });
 }
+
+test.describe('saved plans', () => {
+  test('saves a plan, adds it to the calendar, lists it, and cancels it', async ({ page }) => {
+    await page.goto('/');
+    const dialog = await plan(page, 'Dishwasher');
+    await dialog.getByRole('button', { name: 'Save this plan' }).first().click();
+    await expect(dialog.getByRole('status')).toContainText('Saved.');
+
+    const download = page.waitForEvent('download');
+    await dialog.getByRole('button', { name: 'Add to calendar' }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toBe('wattslot-plan.ics');
+    const ics = await (await file.createReadStream()).toArray();
+    const text = Buffer.concat(ics).toString('utf8');
+    expect(text).toContain('BEGIN:VCALENDAR');
+    expect(text).toContain('SUMMARY:Run the dishwasher');
+
+    await page.keyboard.press('Escape');
+    const mine = page.getByRole('region', { name: 'My plans' });
+    await expect(mine).toContainText('Dishwasher');
+    await expect(mine).toContainText('Planned');
+    await expect(mine).toContainText(/Start .*\d\d:\d\d · done/);
+
+    // Kept in this browser across visits.
+    await page.reload();
+    await expect(mine).toContainText('Planned');
+
+    await mine.getByRole('button', { name: 'Cancel plan' }).click();
+    await expect(mine).toContainText('Cancelled');
+    await expect(mine.getByRole('button', { name: 'Cancel plan' })).toHaveCount(0);
+  });
+
+  test('deletes everything after asking once', async ({ page }) => {
+    await page.goto('/da/');
+    await page.getByRole('button', { name: 'Planlæg' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Find det bedste tidspunkt' }).click();
+    await dialog.getByRole('button', { name: 'Gem planen' }).first().click();
+    await expect(dialog.getByRole('status')).toContainText('Gemt.');
+    await page.keyboard.press('Escape');
+
+    const mine = page.getByRole('region', { name: 'Mine planer' });
+    await mine.getByRole('button', { name: 'Slet alt' }).click();
+    await expect(mine).toContainText('Slet alle dine planer?');
+    await mine.getByRole('button', { name: 'Behold dem' }).click();
+    await expect(mine).toContainText('Opvaskemaskine');
+    await mine.getByRole('button', { name: 'Slet alt' }).click();
+    await mine.getByRole('button', { name: 'Ja, slet' }).click();
+    await expect(mine).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem('wattslot:owner'))).toBeNull();
+  });
+
+  test('loads nothing about plans in a browser that never saved one', async ({ page }) => {
+    const requests: string[] = [];
+    page.on('request', (r) => requests.push(new URL(r.url()).pathname));
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: 'Plan it' })).toBeVisible();
+    expect(requests.filter((p) => p.startsWith('/v1/jobs') || p.startsWith('/v1/owners'))).toEqual(
+      [],
+    );
+    await expect(page.getByRole('region', { name: 'My plans' })).toHaveCount(0);
+  });
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`My plans has no accessibility violations (${colorScheme})`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme });
+      await page.goto('/');
+      const dialog = await plan(page, 'EV charge');
+      await dialog.getByRole('button', { name: 'Save this plan' }).first().click();
+      await expect(dialog.getByRole('status')).toContainText('Saved.');
+      await page.keyboard.press('Escape');
+      const mine = page.getByRole('region', { name: 'My plans' });
+      await mine.getByRole('button', { name: 'Delete everything' }).click();
+      await expect(mine).toContainText('Delete all your plans?');
+      await page.waitForFunction(() =>
+        document.getAnimations().every((a) => a.playState !== 'running'),
+      );
+      const results = await new AxeBuilder({ page }).include('#my-plans-section').analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+    });
+  }
+});

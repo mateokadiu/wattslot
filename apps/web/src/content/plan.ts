@@ -39,6 +39,29 @@ export interface PlanText {
   none: string;
   error: string;
   privacy: string;
+  // Saving plans (P2b) -------------------------------------------------------------------------
+  save: string;
+  saving: string;
+  saved: string;
+  calendar: string;
+  tooMany: string;
+  full: string;
+  saveError: string;
+  myPlans: string;
+  noPlans: string;
+  plansNote: string;
+  statuses: Record<'planned' | 'running' | 'done' | 'cancelled' | 'failed', string>;
+  next: Record<'start' | 'stop' | 'finish', (when: string) => string>;
+  estimatedPrices: string;
+  cancel: string;
+  deleteAll: string;
+  deleteConfirm: string;
+  deleteYes: string;
+  keep: string;
+  loadError: string;
+  /** Calendar event titles. */
+  events: Record<'dishwasher' | 'washing' | 'dryer' | 'ev', string>;
+  eventNote: (cost: string) => string;
 }
 
 export const PLAN_TEXT: Record<Locale, PlanText> = {
@@ -84,7 +107,44 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     tooShort: 'There isn’t enough time for this before then. Choose a later time.',
     none: 'There aren’t enough prices for this window yet.',
     error: 'Couldn’t make a plan. Try again in a moment.',
-    privacy: 'Nothing you enter here is saved.',
+    privacy: 'Nothing is saved unless you save a plan.',
+    save: 'Save this plan',
+    saving: 'Saving…',
+    saved: 'Saved. You’ll find it under My plans on the front page.',
+    calendar: 'Add to calendar',
+    tooMany: 'You have too many plans right now. Cancel one, or try again tomorrow.',
+    full: 'Plans are full right now. Try again later.',
+    saveError: 'Couldn’t save the plan. Try again in a moment.',
+    myPlans: 'My plans',
+    noPlans: 'No plans right now.',
+    plansNote:
+      'Your plans belong to this browser only: clear its data or use another device, and they’re gone. Ended plans disappear after a week.',
+    statuses: {
+      planned: 'Planned',
+      running: 'Running',
+      done: 'Done',
+      cancelled: 'Cancelled',
+      failed: 'Failed',
+    },
+    next: {
+      start: (when) => `Start ${when}`,
+      stop: (when) => `Pause ${when}`,
+      finish: (when) => `Done ${when}`,
+    },
+    estimatedPrices: 'Based on estimated prices',
+    cancel: 'Cancel plan',
+    deleteAll: 'Delete everything',
+    deleteConfirm: 'Delete all your plans? This can’t be undone.',
+    deleteYes: 'Yes, delete',
+    keep: 'Keep them',
+    loadError: 'Couldn’t fetch your plans. Try again in a moment.',
+    events: {
+      dishwasher: 'Run the dishwasher',
+      washing: 'Run the washing machine',
+      dryer: 'Run the tumble dryer',
+      ev: 'Charge the car',
+    },
+    eventNote: (cost) => `Planned by wattslot · ${cost}`,
   },
   da: {
     open: 'Planlæg',
@@ -128,7 +188,44 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     tooShort: 'Der er ikke tid nok til det inden da. Vælg et senere tidspunkt.',
     none: 'Der er endnu ikke priser nok til det tidsrum.',
     error: 'Kunne ikke lave en plan. Prøv igen om lidt.',
-    privacy: 'Intet af det, du skriver her, bliver gemt.',
+    privacy: 'Intet gemmes, medmindre du gemmer en plan.',
+    save: 'Gem planen',
+    saving: 'Gemmer…',
+    saved: 'Gemt. Du finder den under Mine planer på forsiden.',
+    calendar: 'Tilføj til kalender',
+    tooMany: 'Du har for mange planer lige nu. Annullér en, eller prøv igen i morgen.',
+    full: 'Der er ikke plads til flere planer lige nu. Prøv igen senere.',
+    saveError: 'Kunne ikke gemme planen. Prøv igen om lidt.',
+    myPlans: 'Mine planer',
+    noPlans: 'Ingen planer lige nu.',
+    plansNote:
+      'Dine planer hører kun til denne browser: rydder du dens data eller bruger en anden enhed, er de væk. Afsluttede planer forsvinder efter en uge.',
+    statuses: {
+      planned: 'Planlagt',
+      running: 'I gang',
+      done: 'Færdig',
+      cancelled: 'Annulleret',
+      failed: 'Fejlet',
+    },
+    next: {
+      start: (when) => `Start ${when}`,
+      stop: (when) => `Pause ${when}`,
+      finish: (when) => `Færdig ${when}`,
+    },
+    estimatedPrices: 'Bygger på skønnede priser',
+    cancel: 'Annullér plan',
+    deleteAll: 'Slet alt',
+    deleteConfirm: 'Slet alle dine planer? Det kan ikke fortrydes.',
+    deleteYes: 'Ja, slet',
+    keep: 'Behold dem',
+    loadError: 'Kunne ikke hente dine planer. Prøv igen om lidt.',
+    events: {
+      dishwasher: 'Kør opvaskemaskinen',
+      washing: 'Kør vaskemaskinen',
+      dryer: 'Kør tørretumbleren',
+      ev: 'Lad bilen',
+    },
+    eventNote: (cost) => `Planlagt af wattslot · ${cost}`,
   },
   de: {
     open: 'Planen',
@@ -172,7 +269,44 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     tooShort: 'Bis dahin reicht die Zeit dafür nicht. Wähle eine spätere Uhrzeit.',
     none: 'Für diesen Zeitraum gibt es noch nicht genug Preise.',
     error: 'Das Planen hat nicht geklappt. Versuch es gleich noch einmal.',
-    privacy: 'Nichts, was du hier eingibst, wird gespeichert.',
+    privacy: 'Gespeichert wird nur, wenn du einen Plan speicherst.',
+    save: 'Plan speichern',
+    saving: 'Wird gespeichert…',
+    saved: 'Gespeichert. Du findest ihn unter „Meine Pläne“ auf der Startseite.',
+    calendar: 'Zum Kalender hinzufügen',
+    tooMany: 'Du hast gerade zu viele Pläne. Brich einen ab oder versuch es morgen wieder.',
+    full: 'Gerade ist kein Platz für weitere Pläne. Versuch es später noch einmal.',
+    saveError: 'Der Plan konnte nicht gespeichert werden. Versuch es gleich noch einmal.',
+    myPlans: 'Meine Pläne',
+    noPlans: 'Gerade keine Pläne.',
+    plansNote:
+      'Deine Pläne gehören nur zu diesem Browser: Löschst du seine Daten oder nutzt ein anderes Gerät, sind sie weg. Beendete Pläne verschwinden nach einer Woche.',
+    statuses: {
+      planned: 'Geplant',
+      running: 'Läuft',
+      done: 'Fertig',
+      cancelled: 'Abgebrochen',
+      failed: 'Fehlgeschlagen',
+    },
+    next: {
+      start: (when) => `Start ${when}`,
+      stop: (when) => `Pause ${when}`,
+      finish: (when) => `Fertig ${when}`,
+    },
+    estimatedPrices: 'Beruht auf geschätzten Preisen',
+    cancel: 'Plan abbrechen',
+    deleteAll: 'Alles löschen',
+    deleteConfirm: 'Alle deine Pläne löschen? Das lässt sich nicht rückgängig machen.',
+    deleteYes: 'Ja, löschen',
+    keep: 'Behalten',
+    loadError: 'Deine Pläne konnten nicht geladen werden. Versuch es gleich noch einmal.',
+    events: {
+      dishwasher: 'Spülmaschine starten',
+      washing: 'Waschmaschine starten',
+      dryer: 'Trockner starten',
+      ev: 'Auto laden',
+    },
+    eventNote: (cost) => `Geplant von wattslot · ${cost}`,
   },
   nb: {
     open: 'Planlegg',
@@ -216,7 +350,44 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     tooShort: 'Det er ikke nok tid til dette før da. Velg et senere tidspunkt.',
     none: 'Det er ikke nok priser for dette tidsrommet ennå.',
     error: 'Klarte ikke å lage en plan. Prøv igjen om litt.',
-    privacy: 'Ingenting du skriver inn her, blir lagret.',
+    privacy: 'Ingenting lagres med mindre du lagrer en plan.',
+    save: 'Lagre planen',
+    saving: 'Lagrer…',
+    saved: 'Lagret. Du finner den under Mine planer på forsiden.',
+    calendar: 'Legg til i kalender',
+    tooMany: 'Du har for mange planer akkurat nå. Avbryt en, eller prøv igjen i morgen.',
+    full: 'Det er ikke plass til flere planer akkurat nå. Prøv igjen senere.',
+    saveError: 'Klarte ikke å lagre planen. Prøv igjen om litt.',
+    myPlans: 'Mine planer',
+    noPlans: 'Ingen planer akkurat nå.',
+    plansNote:
+      'Planene dine hører bare til denne nettleseren: tømmer du dataene eller bruker en annen enhet, er de borte. Avsluttede planer forsvinner etter en uke.',
+    statuses: {
+      planned: 'Planlagt',
+      running: 'Pågår',
+      done: 'Ferdig',
+      cancelled: 'Avbrutt',
+      failed: 'Feilet',
+    },
+    next: {
+      start: (when) => `Start ${when}`,
+      stop: (when) => `Pause ${when}`,
+      finish: (when) => `Ferdig ${when}`,
+    },
+    estimatedPrices: 'Bygger på anslåtte priser',
+    cancel: 'Avbryt planen',
+    deleteAll: 'Slett alt',
+    deleteConfirm: 'Slette alle planene dine? Det kan ikke angres.',
+    deleteYes: 'Ja, slett',
+    keep: 'Behold dem',
+    loadError: 'Klarte ikke å hente planene dine. Prøv igjen om litt.',
+    events: {
+      dishwasher: 'Kjør oppvaskmaskinen',
+      washing: 'Kjør vaskemaskinen',
+      dryer: 'Kjør tørketrommelen',
+      ev: 'Lad bilen',
+    },
+    eventNote: (cost) => `Planlagt av wattslot · ${cost}`,
   },
   sv: {
     open: 'Planera',
@@ -260,6 +431,43 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     tooShort: 'Det finns inte tid nog för det före dess. Välj en senare tid.',
     none: 'Det finns inte tillräckligt med priser för den perioden än.',
     error: 'Det gick inte att göra en plan. Försök igen om en stund.',
-    privacy: 'Inget du anger här sparas.',
+    privacy: 'Inget sparas om du inte sparar en plan.',
+    save: 'Spara planen',
+    saving: 'Sparar…',
+    saved: 'Sparad. Du hittar den under Mina planer på startsidan.',
+    calendar: 'Lägg till i kalendern',
+    tooMany: 'Du har för många planer just nu. Avbryt en, eller försök igen i morgon.',
+    full: 'Det finns inte plats för fler planer just nu. Försök igen senare.',
+    saveError: 'Det gick inte att spara planen. Försök igen om en stund.',
+    myPlans: 'Mina planer',
+    noPlans: 'Inga planer just nu.',
+    plansNote:
+      'Dina planer hör bara till den här webbläsaren: rensar du dess data eller använder en annan enhet är de borta. Avslutade planer försvinner efter en vecka.',
+    statuses: {
+      planned: 'Planerad',
+      running: 'Pågår',
+      done: 'Klar',
+      cancelled: 'Avbruten',
+      failed: 'Misslyckades',
+    },
+    next: {
+      start: (when) => `Starta ${when}`,
+      stop: (when) => `Paus ${when}`,
+      finish: (when) => `Klar ${when}`,
+    },
+    estimatedPrices: 'Bygger på uppskattade priser',
+    cancel: 'Avbryt planen',
+    deleteAll: 'Radera allt',
+    deleteConfirm: 'Radera alla dina planer? Det går inte att ångra.',
+    deleteYes: 'Ja, radera',
+    keep: 'Behåll dem',
+    loadError: 'Det gick inte att hämta dina planer. Försök igen om en stund.',
+    events: {
+      dishwasher: 'Kör diskmaskinen',
+      washing: 'Kör tvättmaskinen',
+      dryer: 'Kör torktumlaren',
+      ev: 'Ladda bilen',
+    },
+    eventNote: (cost) => `Planerad av wattslot · ${cost}`,
   },
 };

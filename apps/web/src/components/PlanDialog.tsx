@@ -1,7 +1,6 @@
 'use client';
 
-import { addDays, localTime } from '@wattslot/pricing';
-import { useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,21 +18,26 @@ import {
 } from '@/components/ui/select';
 import { PLAN_TEXT } from '@/content/plan';
 import type { Zone } from '@/lib/api';
-import { clock, duration, price } from '@/lib/format';
+import { clock, duration } from '@/lib/format';
 import { dictionaries, LOCALES, type Locale } from '@/lib/i18n';
+import { downloadIcs, toIcs } from '@/lib/ics';
 import { slotsFor, type Task } from '@/lib/insights';
+import { type Job, saveJob, type TaskId } from '@/lib/owner';
 import {
   fetchPlan,
   nextLocalTime,
+  type OptionKind,
   type PlanPreview,
+  type PlanRequest,
   type PlanResult,
   type PlanSummary,
   powerFor,
   sameRuns,
 } from '@/lib/plan';
+import { describeRuns, moneyFormat, planEvents, useWhen } from './plan-format';
 
 // The "Plan" form (PLAN.md §17.7): what to run and by when, then three ways to do it. Loaded on
-// first use, so the live view doesn't pay for it. Nothing is stored.
+// first use, so the live view doesn't pay for it. Nothing is stored until a plan is saved.
 
 const HOUR_MS = 3_600_000;
 const QUARTER_MS = 900_000;
@@ -76,11 +80,34 @@ export default function PlanDialog({ open, onOpenChange, locale, task, zone, gln
   const [mayPause, setMayPause] = useState(task.canPause);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PlanResult | null>(null);
+  const [request, setRequest] = useState<PlanRequest | null>(null);
+  const [saving, setSaving] = useState<OptionKind | null>(null);
+  const [saved, setSaved] = useState<{ kind: OptionKind; job: Job } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const money = (value: number) =>
-    zone.currency === 'DKK'
-      ? t.money(price(value, locale))
-      : `${price(value, locale)} ${zone.currency}`;
+  const money = moneyFormat(locale, zone.currency);
+
+  async function save(kind: OptionKind) {
+    if (!request) return;
+    setSaving(kind);
+    setSaveError(null);
+    const outcome = await saveJob(locale, {
+      ...request,
+      task: task.id as TaskId,
+      objective: kind,
+    });
+    setSaving(null);
+    if (outcome.kind === 'ok') setSaved({ kind, job: outcome.job });
+    else {
+      setSaveError(
+        outcome.reason === 'too_many_plans'
+          ? p.tooMany
+          : outcome.reason === 'plans_full' || outcome.reason === 'owners_full'
+            ? p.full
+            : p.saveError,
+      );
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -93,18 +120,20 @@ export default function PlanDialog({ open, onOpenChange, locale, task, zone, gln
       : nowMs;
     // "Done by 07:00" is the next 07:00; if the load doesn't fit before it, the answer says so.
     const deadlineMs = nextLocalTime(by, timeZone, earliestMs + QUARTER_MS);
+    const body: PlanRequest = {
+      zone: zone.code,
+      ...(gln ? { gln } : {}),
+      energyWh,
+      maxPowerW,
+      contiguous: !(task.canPause && mayPause),
+      ...(earliestMs > nowMs ? { earliest: new Date(earliestMs).toISOString() } : {}),
+      deadline: new Date(deadlineMs).toISOString(),
+    };
     setBusy(true);
-    setResult(
-      await fetchPlan({
-        zone: zone.code,
-        ...(gln ? { gln } : {}),
-        energyWh,
-        maxPowerW,
-        contiguous: !(task.canPause && mayPause),
-        ...(earliestMs > nowMs ? { earliest: new Date(earliestMs).toISOString() } : {}),
-        deadline: new Date(deadlineMs).toISOString(),
-      }),
-    );
+    setSaved(null);
+    setSaveError(null);
+    setRequest(body);
+    setResult(await fetchPlan(body));
     setBusy(false);
   }
 
@@ -221,7 +250,21 @@ export default function PlanDialog({ open, onOpenChange, locale, task, zone, gln
         </form>
 
         <div aria-live="polite">
-          {result && <Results result={result} locale={locale} timeZone={timeZone} money={money} />}
+          {result && (
+            <Results
+              result={result}
+              locale={locale}
+              timeZone={timeZone}
+              money={money}
+              saving={saving}
+              saved={saved}
+              saveError={saveError}
+              onSave={save}
+              onCalendar={(job) =>
+                downloadIcs('wattslot-plan.ics', toIcs(planEvents(job, locale, money), Date.now()))
+              }
+            />
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -233,11 +276,21 @@ function Results({
   locale,
   timeZone,
   money,
+  saving,
+  saved,
+  saveError,
+  onSave,
+  onCalendar,
 }: {
   result: PlanResult;
   locale: Locale;
   timeZone: string;
   money: (value: number) => string;
+  saving: OptionKind | null;
+  saved: { kind: OptionKind; job: Job } | null;
+  saveError: string | null;
+  onSave: (kind: OptionKind) => void;
+  onCalendar: (job: Job) => void;
 }) {
   const p = PLAN_TEXT[locale];
   const when = useWhen(locale, timeZone);
@@ -312,10 +365,49 @@ function Results({
                   <Compare against={startNow} option={option} words={p.vsNow} money={money} />
                 )}
               </div>
+              {saved?.kind === option.kind ? (
+                <div className="mt-3 space-y-2">
+                  <p
+                    role="status"
+                    className="text-sm font-medium"
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    ✓ {p.saved}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-lg"
+                    onClick={() => onCalendar(saved.job)}
+                  >
+                    {p.calendar}
+                  </Button>
+                </div>
+              ) : (
+                !saved && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-3 h-10 rounded-lg"
+                    disabled={saving !== null}
+                    onClick={() => onSave(option.kind)}
+                  >
+                    {saving === option.kind ? p.saving : p.save}
+                  </Button>
+                )
+              )}
             </li>
           );
         })}
       </ol>
+      {saveError && (
+        <p
+          role="alert"
+          className="rounded-lg border border-[var(--warn-border)] bg-[var(--warn-bg)] px-4 py-3 text-sm"
+        >
+          {saveError}
+        </p>
+      )}
     </section>
   );
 }
@@ -343,51 +435,4 @@ function Compare({
       {saving > 0 ? words.less(money(saving)) : words.more(money(-saving))}
     </p>
   );
-}
-
-/** On the price area's clock: the day (null for today, "tomorrow", or a weekday) and the time. */
-function useWhen(locale: Locale, timeZone: string) {
-  const p = PLAN_TEXT[locale];
-  return useMemo(() => {
-    const weekday = new Intl.DateTimeFormat(LOCALES[locale].intl, { weekday: 'long', timeZone });
-    const today = localTime(Date.now(), timeZone).date;
-    const tomorrow = addDays(today, 1);
-    const day = (ms: number) => {
-      const date = localTime(ms, timeZone).date;
-      return date === today ? null : date === tomorrow ? p.tomorrow : weekday.format(ms);
-    };
-    return { day, at: (ms: number) => p.at(day(ms), clock(ms, timeZone)) };
-  }, [locale, timeZone, p]);
-}
-
-type When = ReturnType<typeof useWhen>;
-
-/** "Start tomorrow 02:45 · done 04:45", or "Charge 01:00–03:15, 04:30–04:45" for several runs. */
-function describeRuns(
-  summary: PlanSummary,
-  p: (typeof PLAN_TEXT)[Locale],
-  when: When,
-  timeZone: string,
-): string {
-  const runs = summary.runs.map((r) => ({ start: Date.parse(r.start), end: Date.parse(r.end) }));
-  const [first] = runs;
-  if (!first) return '';
-  // A run that ends on the day it starts names that day once.
-  const sameDay = (r: { start: number; end: number }) =>
-    localTime(r.start, timeZone).date === localTime(r.end - 1, timeZone).date;
-  if (runs.length === 1) {
-    const done = sameDay(first) ? p.at(null, clock(first.end, timeZone)) : when.at(first.end);
-    return `${p.start(when.at(first.start))} · ${p.done(done)}`;
-  }
-  // Runs on the same day as the one before don't repeat the day: "tomorrow 00:00–02:30, 03:00–03:13".
-  const span = (r: { start: number; end: number }, i: number) => {
-    if (!sameDay(r)) return `${when.at(r.start)}–${when.at(r.end)}`;
-    const previous = runs[i - 1];
-    const day =
-      previous && localTime(previous.end - 1, timeZone).date === localTime(r.start, timeZone).date
-        ? null
-        : when.day(r.start);
-    return p.span(day, clock(r.start, timeZone), clock(r.end, timeZone));
-  };
-  return `${p.charge} ${runs.map(span).join(', ')}`;
 }
