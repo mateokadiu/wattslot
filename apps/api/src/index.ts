@@ -10,6 +10,7 @@ import { jobRoutes } from './routes/jobs.ts';
 import { outageRoutes } from './routes/outages.ts';
 import { planRoutes } from './routes/plans.ts';
 import { priceRoutes } from './routes/prices.ts';
+import { pushRoutes } from './routes/push.ts';
 import { referenceRoutes } from './routes/reference.ts';
 import { statusRoutes } from './routes/status.ts';
 import { tariffRoutes } from './routes/tariffs.ts';
@@ -42,6 +43,7 @@ app.route('/v1', tariffRoutes);
 app.route('/v1', outageRoutes);
 app.route('/v1', planRoutes);
 app.route('/v1', jobRoutes);
+app.route('/v1', pushRoutes);
 
 app.openAPIRegistry.registerComponent('securitySchemes', 'ownerToken', {
   type: 'http',

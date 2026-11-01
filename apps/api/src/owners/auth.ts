@@ -1,3 +1,5 @@
+// An explicit import (not the ambient Workers global) so tests type-check under Node too.
+import type { D1Database } from '@cloudflare/workers-types';
 import type { MiddlewareHandler } from 'hono';
 import type { AppEnv } from '../env.ts';
 

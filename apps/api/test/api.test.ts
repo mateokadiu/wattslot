@@ -216,6 +216,8 @@ describe('api', () => {
       '/v1/owners/me',
       '/v1/jobs',
       '/v1/jobs/{id}',
+      '/v1/push/key',
+      '/v1/push/subscriptions',
     ]);
   });
 });

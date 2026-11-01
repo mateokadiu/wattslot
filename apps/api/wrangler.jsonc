@@ -14,7 +14,9 @@
   // The free plan allows 5 Cron Triggers per account; one dispatches every task.
   "triggers": { "crons": ["*/5 * * * *"] },
   // `off` pauses the outage overview (PLAN.md §17.4) without a code change.
-  "vars": { "OUTAGES": "on" },
+  "vars": { "OUTAGES": "on", "SITE_URL": "https://wattslot.mateokadiu.com" },
+  // Secrets (set with `wrangler secret put`, never committed): VAPID_PRIVATE_KEY and PUSH_KEK —
+  // see scripts/secret.mjs. Without them, notifications are simply off.
   // One instance per saved plan: sleeps until each moment of the plan, then acts (PLAN.md §17.7).
   "workflows": [
     { "name": "wattslot-jobs", "binding": "JOB_WORKFLOW", "class_name": "JobWorkflow" }

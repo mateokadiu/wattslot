@@ -33,6 +33,13 @@ const FIXTURES: Record<string, string> = {
   DatahubPricelist: 'datahub-pricelist-radius-energinet.json',
 };
 
+/** A request the worker sent to the fake push service. */
+export interface Push {
+  endpoint: string;
+  headers: Record<string, string>;
+  body: Uint8Array;
+}
+
 export interface Harness {
   mf: Miniflare;
   db: D1Database;
@@ -43,9 +50,13 @@ export interface Harness {
   rateLimited: Set<string>;
   /** Replaces a dataset's recorded response, e.g. to simulate a withdrawn tariff period. */
   overrides: Map<string, string>;
+  /** Messages sent to the fake push service (fcm.googleapis.com), in order. */
+  pushes: Push[];
+  /** Status the fake push service answers per endpoint (default 201). */
+  pushStatus: Map<string, number>;
   /** Fires the cron at a Danish local time on 28 Oct 2026 (CET). */
   tick(hhmm: string): Promise<void>;
-  get(path: string): Promise<Response>;
+  get(path: string): ReturnType<Miniflare['dispatchFetch']>;
   /** Starts the job workflow for a job already in the database. */
   startWorkflow(jobId: string): Promise<void>;
   workflowStatus(jobId: string): Promise<{ status: string; output?: unknown }>;
@@ -76,8 +87,19 @@ export async function startWorker(bindings: Record<string, string> = {}): Promis
   const urls: URL[] = [];
   const rateLimited = new Set<string>();
   const overrides = new Map<string, string>();
-  const outboundService = (request: Request) => {
+  const pushes: Push[] = [];
+  const pushStatus = new Map<string, number>();
+  const outboundService = async (request: Request) => {
     const url = new URL(request.url);
+    // A fake push service: records each message, answers 201 unless told otherwise.
+    if (url.hostname === 'fcm.googleapis.com') {
+      pushes.push({
+        endpoint: request.url,
+        headers: Object.fromEntries(request.headers),
+        body: new Uint8Array(await request.arrayBuffer()),
+      });
+      return new Response(null, { status: pushStatus.get(request.url) ?? 201 });
+    }
     // Outage portal lists share a path; tell them apart by showType ("incidents:2").
     const dataset = url.hostname.endsWith('greenpowerdenmark.dk')
       ? `incidents:${url.searchParams.get('showType')}`
@@ -143,6 +165,8 @@ export async function startWorker(bindings: Record<string, string> = {}): Promis
     urls,
     rateLimited,
     overrides,
+    pushes,
+    pushStatus,
     async tick(hhmm) {
       const worker = await mf.getWorker('api');
       await worker.scheduled({ scheduledTime: local(hhmm), cron: '*/5 * * * *' });
