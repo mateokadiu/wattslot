@@ -1,3 +1,5 @@
+// An explicit import (not the ambient Workers global) so tests type-check under Node too.
+import type { D1Database } from '@cloudflare/workers-types';
 import { schema } from '@wattslot/db';
 import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';

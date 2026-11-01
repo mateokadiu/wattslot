@@ -209,6 +209,7 @@ describe('api', () => {
       '/v1/cheapest',
       '/v1/tariffs',
       '/v1/outages',
+      '/v1/plan-preview',
     ]);
   });
 });

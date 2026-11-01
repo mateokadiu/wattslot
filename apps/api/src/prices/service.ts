@@ -47,7 +47,17 @@ export async function loadZone(db: Db, code: string): Promise<Zone> {
   return zone;
 }
 
-async function spotSlots(db: Db, zone: string, fromMs: number, toMs: number) {
+export interface SpotSlot {
+  startMs: number;
+  price: Micro;
+}
+
+export async function spotSlots(
+  db: Db,
+  zone: string,
+  fromMs: number,
+  toMs: number,
+): Promise<SpotSlot[]> {
   const t = schema.spotPrices;
   return db
     .select({ startMs: t.slotStartMs, price: t.priceMicro })
@@ -152,15 +162,23 @@ async function pricingContext(
 }
 
 /**
- * All-in prices for every stored slot in [fromMs, toMs). Falls back to spot prices — and says
- * why — whenever the full price can't be computed honestly.
+ * All-in prices for every stored slot in [fromMs, toMs) — or for `spots`, when the caller has
+ * them already (published and estimated). Falls back to spot prices — and says why — whenever
+ * the full price can't be computed honestly.
  */
 export async function priceRange(
   db: Db,
-  params: { zone: Zone; gln?: string | undefined; fromMs: number; toMs: number; markup: Micro },
+  params: {
+    zone: Zone;
+    gln?: string | undefined;
+    fromMs: number;
+    toMs: number;
+    markup: Micro;
+    spots?: readonly SpotSlot[];
+  },
 ): Promise<PricedRange> {
   const { zone } = params;
-  const spots = await spotSlots(db, zone.code, params.fromMs, params.toMs);
+  const spots = params.spots ?? (await spotSlots(db, zone.code, params.fromMs, params.toMs));
   const spotOnly = (note: string, gridCompany: PricedRange['gridCompany'] = null): PricedRange => ({
     zone,
     gridCompany,

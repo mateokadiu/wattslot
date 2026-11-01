@@ -7,6 +7,7 @@ import type { AppEnv, Env } from './env.ts';
 import { runScheduled } from './ingest/run.ts';
 import { RequestError } from './prices/service.ts';
 import { outageRoutes } from './routes/outages.ts';
+import { planRoutes } from './routes/plans.ts';
 import { priceRoutes } from './routes/prices.ts';
 import { referenceRoutes } from './routes/reference.ts';
 import { statusRoutes } from './routes/status.ts';
@@ -24,8 +25,9 @@ app.use('*', async (c, next) => {
 app.get('/health', (c) => c.json({ ok: true }));
 
 app.use('*', secureHeaders());
-// Public, read-only data: any site may read it from a browser. No cookies, so no credentials.
-app.use('/v1/*', cors({ origin: '*', allowMethods: ['GET', 'OPTIONS'], maxAge: 86_400 }));
+// Public data any site may read from a browser (POST only to compute a preview). No cookies, so
+// no credentials.
+app.use('/v1/*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'OPTIONS'], maxAge: 86_400 }));
 app.use('/openapi.json', cors({ origin: '*', allowMethods: ['GET'] }));
 app.use('/v1/*', async (c, next) => {
   await next();
@@ -37,6 +39,7 @@ app.route('/v1', statusRoutes);
 app.route('/v1', priceRoutes);
 app.route('/v1', tariffRoutes);
 app.route('/v1', outageRoutes);
+app.route('/v1', planRoutes);
 
 app.doc31('/openapi.json', {
   openapi: '3.1.0',
