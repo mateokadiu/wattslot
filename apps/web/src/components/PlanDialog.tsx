@@ -34,6 +34,7 @@ import {
   powerFor,
   sameRuns,
 } from '@/lib/plan';
+import { NotifyControl } from './NotifyControl';
 import { describeRuns, moneyFormat, planEvents, useWhen } from './plan-format';
 
 // The "Plan" form (PLAN.md §17.7): what to run and by when, then three ways to do it. Loaded on
@@ -374,14 +375,17 @@ function Results({
                   >
                     ✓ {p.saved}
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 rounded-lg"
-                    onClick={() => onCalendar(saved.job)}
-                  >
-                    {p.calendar}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 rounded-lg"
+                      onClick={() => onCalendar(saved.job)}
+                    >
+                      {p.calendar}
+                    </Button>
+                  </div>
+                  <NotifyControl locale={locale} />
                 </div>
               ) : (
                 !saved && (

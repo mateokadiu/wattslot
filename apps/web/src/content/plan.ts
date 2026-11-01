@@ -62,6 +62,14 @@ export interface PlanText {
   /** Calendar event titles. */
   events: Record<'dishwasher' | 'washing' | 'dryer' | 'ev', string>;
   eventNote: (cost: string) => string;
+  // Notifications (P2c) ------------------------------------------------------------------------
+  notify: string;
+  notifyOn: string;
+  notifyTurnOff: string;
+  notifyDenied: string;
+  notifyError: string;
+  tooManyDevices: string;
+  iosHint: string;
 }
 
 export const PLAN_TEXT: Record<Locale, PlanText> = {
@@ -145,6 +153,15 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
       ev: 'Charge the car',
     },
     eventNote: (cost) => `Planned by wattslot · ${cost}`,
+    notify: 'Notify me on this device',
+    notifyOn: 'Notifications are on for this device.',
+    notifyTurnOff: 'Turn off',
+    notifyDenied: 'Notifications are blocked for this site in your browser’s settings.',
+    notifyError: 'Couldn’t turn on notifications. Try again in a moment.',
+    tooManyDevices:
+      'Notifications are already on for 3 devices. Turn them off on one of them first.',
+    iosHint:
+      'On iPhone and iPad, notifications need wattslot on your Home Screen: tap Share, then “Add to Home Screen”. Or use Add to calendar.',
   },
   da: {
     open: 'Planlæg',
@@ -226,6 +243,15 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
       ev: 'Lad bilen',
     },
     eventNote: (cost) => `Planlagt af wattslot · ${cost}`,
+    notify: 'Giv mig besked på denne enhed',
+    notifyOn: 'Notifikationer er slået til på denne enhed.',
+    notifyTurnOff: 'Slå fra',
+    notifyDenied: 'Notifikationer er blokeret for siden i dine browserindstillinger.',
+    notifyError: 'Kunne ikke slå notifikationer til. Prøv igen om lidt.',
+    tooManyDevices:
+      'Notifikationer er allerede slået til på 3 enheder. Slå dem fra på én af dem først.',
+    iosHint:
+      'På iPhone og iPad kræver notifikationer, at wattslot ligger på din hjemmeskærm: tryk på Del og derefter »Føj til hjemmeskærm«. Eller brug Tilføj til kalender.',
   },
   de: {
     open: 'Planen',
@@ -307,6 +333,17 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
       ev: 'Auto laden',
     },
     eventNote: (cost) => `Geplant von wattslot · ${cost}`,
+    notify: 'Auf diesem Gerät benachrichtigen',
+    notifyOn: 'Benachrichtigungen sind auf diesem Gerät an.',
+    notifyTurnOff: 'Ausschalten',
+    notifyDenied:
+      'Benachrichtigungen sind für diese Seite in deinen Browsereinstellungen blockiert.',
+    notifyError:
+      'Benachrichtigungen konnten nicht eingeschaltet werden. Versuch es gleich noch einmal.',
+    tooManyDevices:
+      'Benachrichtigungen sind schon auf 3 Geräten an. Schalte sie zuerst auf einem davon aus.',
+    iosHint:
+      'Auf iPhone und iPad braucht es für Benachrichtigungen wattslot auf dem Home-Bildschirm: Tippe auf Teilen und dann auf „Zum Home-Bildschirm“. Oder nutze „Zum Kalender hinzufügen“.',
   },
   nb: {
     open: 'Planlegg',
@@ -388,6 +425,14 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
       ev: 'Lad bilen',
     },
     eventNote: (cost) => `Planlagt av wattslot · ${cost}`,
+    notify: 'Varsle meg på denne enheten',
+    notifyOn: 'Varsler er slått på for denne enheten.',
+    notifyTurnOff: 'Slå av',
+    notifyDenied: 'Varsler er blokkert for nettstedet i nettleserinnstillingene dine.',
+    notifyError: 'Klarte ikke å slå på varsler. Prøv igjen om litt.',
+    tooManyDevices: 'Varsler er allerede slått på for 3 enheter. Slå dem av på én av dem først.',
+    iosHint:
+      'På iPhone og iPad må wattslot ligge på Hjem-skjermen for å kunne varsle: trykk på Del og så «Legg til på Hjem-skjerm». Eller bruk Legg til i kalender.',
   },
   sv: {
     open: 'Planera',
@@ -469,5 +514,13 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
       ev: 'Ladda bilen',
     },
     eventNote: (cost) => `Planerad av wattslot · ${cost}`,
+    notify: 'Meddela mig på den här enheten',
+    notifyOn: 'Aviseringar är på för den här enheten.',
+    notifyTurnOff: 'Stäng av',
+    notifyDenied: 'Aviseringar är blockerade för webbplatsen i dina webbläsarinställningar.',
+    notifyError: 'Det gick inte att slå på aviseringar. Försök igen om en stund.',
+    tooManyDevices: 'Aviseringar är redan på för 3 enheter. Stäng av dem på en av dem först.',
+    iosHint:
+      'På iPhone och iPad behöver wattslot ligga på hemskärmen för att kunna skicka aviseringar: tryck på Dela och sedan ”Lägg till på hemskärmen”. Eller använd Lägg till i kalendern.',
   },
 };

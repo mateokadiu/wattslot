@@ -7,6 +7,7 @@ import type { Zone } from '@/lib/api';
 import { dictionaries, LOCALES, type Locale } from '@/lib/i18n';
 import { downloadIcs, toIcs } from '@/lib/ics';
 import { cancelJob, deleteEverything, type Job, listJobs, onPlansChanged } from '@/lib/owner';
+import { NotifyControl } from './NotifyControl';
 import { describeRuns, moneyFormat, planEvents, useWhen } from './plan-format';
 
 // "My plans" on the live view (PLAN.md §17.7): this browser's saved plans, what happens next,
@@ -70,6 +71,11 @@ export default function MyPlans({ locale, zones }: { locale: Locale; zones: Zone
             );
           })}
         </ul>
+      )}
+      {jobs?.some((j) => LIVE.has(j.status)) && (
+        <div className="mt-4 border-t border-[var(--border)] pt-4">
+          <NotifyControl locale={locale} />
+        </div>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--border)] pt-4 text-xs text-[var(--muted)]">
         <p className="max-w-prose flex-1">{p.plansNote}</p>

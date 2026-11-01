@@ -151,6 +151,27 @@ export async function cancelJob(id: string): Promise<void> {
   changed();
 }
 
+export type DeviceResult = 'on' | 'too-many' | 'off' | 'error';
+
+/** Tells wattslot to send this owner's notifications to a device subscription. */
+export async function addDevice(subscription: PushSubscriptionJSON): Promise<DeviceResult> {
+  const token = readToken();
+  if (!token) return 'error';
+  try {
+    await call('POST', '/push/subscriptions', token, subscription);
+    return 'on';
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : '';
+    return reason === 'too_many_devices' ? 'too-many' : reason === 'push_off' ? 'off' : 'error';
+  }
+}
+
+export async function removeDevice(endpoint: string): Promise<void> {
+  const token = readToken();
+  if (token)
+    await call('DELETE', '/push/subscriptions', token, { endpoint }).catch(() => undefined);
+}
+
 /** Deletes the owner and everything saved with it, then forgets the token. */
 export async function deleteEverything(): Promise<void> {
   const token = readToken();

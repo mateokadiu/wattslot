@@ -180,3 +180,89 @@ test.describe('saved plans', () => {
     });
   }
 });
+
+test.describe('notifications', () => {
+  // Headless browsers can't reach a real push service, and headless Chromium reports the
+  // notification permission as denied whatever is granted. So the permission prompt and the
+  // PushManager are replaced; everything else (service worker, API) is real.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      let permission: NotificationPermission = 'default';
+      Object.defineProperty(Notification, 'permission', { get: () => permission });
+      Notification.requestPermission = async () => {
+        permission = 'granted';
+        return permission;
+      };
+      let current: PushSubscription | null = null;
+      PushManager.prototype.subscribe = async (options) => {
+        const endpoint = `https://fcm.googleapis.com/fcm/send/e2e-${Math.random().toString(36).slice(2)}`;
+        current = {
+          endpoint,
+          options: { applicationServerKey: options?.applicationServerKey ?? null },
+          toJSON: () => ({
+            endpoint,
+            keys: { p256dh: `B${'A'.repeat(86)}`, auth: 'A'.repeat(22) },
+          }),
+          unsubscribe: async () => {
+            current = null;
+            return true;
+          },
+        } as unknown as PushSubscription;
+        return current;
+      };
+      PushManager.prototype.getSubscription = async () => current;
+    });
+  });
+
+  test('turns notifications on for this device after saving, and off again', async ({ page }) => {
+    await page.goto('/');
+    const dialog = await plan(page, 'EV charge');
+    await dialog.getByRole('button', { name: 'Save this plan' }).first().click();
+    await dialog.getByRole('button', { name: 'Notify me on this device' }).click();
+    await expect(dialog).toContainText('Notifications are on for this device.');
+    expect(
+      await page.evaluate(
+        async () => (await navigator.serviceWorker.getRegistration('/'))?.active?.scriptURL,
+      ),
+    ).toMatch(/\/sw\.js$/);
+
+    await page.keyboard.press('Escape');
+    const mine = page.getByRole('region', { name: 'My plans' });
+    await expect(mine).toContainText('Notifications are on for this device.');
+    await mine.getByRole('button', { name: 'Turn off' }).click();
+    await expect(mine.getByRole('button', { name: 'Notify me on this device' })).toBeVisible();
+  });
+
+  test('says when notifications are blocked', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(Notification, 'permission', { get: () => 'denied' });
+      Notification.requestPermission = async () => 'denied';
+    });
+    await page.goto('/');
+    const dialog = await plan(page, 'Dishwasher');
+    await dialog.getByRole('button', { name: 'Save this plan' }).first().click();
+    await expect(dialog).toContainText('Notifications are blocked for this site');
+  });
+});
+
+test('points iPhone users to the Home Screen, where notifications work', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) AppleWebKit/605.1.15',
+    });
+    // Safari outside a Home Screen app has no PushManager.
+    delete (window as { PushManager?: unknown }).PushManager;
+  });
+  await page.goto('/');
+  const dialog = await plan(page, 'Dishwasher');
+  await dialog.getByRole('button', { name: 'Save this plan' }).first().click();
+  await expect(dialog).toContainText('Add to Home Screen');
+});
+
+test('serves a service worker that only shows notifications', async ({ request }) => {
+  const response = await request.get('/sw.js');
+  expect(response.status()).toBe(200);
+  const script = await response.text();
+  expect(script).toContain("addEventListener('push'");
+  expect(script).not.toContain("addEventListener('fetch'");
+});

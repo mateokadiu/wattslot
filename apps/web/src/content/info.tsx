@@ -359,6 +359,13 @@ export const INFO: Record<InfoKey, { en: InfoContent; da: InfoContent }> = {
             key and everything saved with it are deleted. “Delete everything” under My plans removes
             it all at once. If you clear your browser’s data, the plans can’t be reached again.
           </p>
+          <p>
+            If you turn on notifications, the address your browser’s push service gave this device
+            (Google, Mozilla, Apple or Microsoft, depending on the browser) and its keys are stored
+            with your plans, encrypted. wattslot sends the plan’s messages there, encrypted so only
+            your device can read them. Turning notifications off, “Delete everything” or 90 days
+            without a visit removes them.
+          </p>
           <h2>What the server sees</h2>
           <p>
             The site runs on Cloudflare. Like any website, it processes your IP address to deliver
@@ -411,6 +418,13 @@ export const INFO: Record<InfoKey, { en: InfoContent; da: InfoContent }> = {
             Planer slettes en uge efter, de er slut. Har en browser ikke været forbi i 90 dage,
             slettes dens nøgle og alt, hvad der er gemt med den. »Slet alt« under Mine planer
             fjerner det hele med det samme. Rydder du din browsers data, kan planerne ikke nås igen.
+          </p>
+          <p>
+            Slår du notifikationer til, gemmes den adresse, din browsers push-tjeneste har givet
+            enheden (Google, Mozilla, Apple eller Microsoft afhængigt af browseren), og dens nøgler
+            krypteret sammen med dine planer. wattslot sender planens beskeder dertil, krypteret så
+            kun din enhed kan læse dem. Slår du notifikationer fra, vælger »Slet alt«, eller går der
+            90 dage uden besøg, fjernes de.
           </p>
           <h2>Det, serveren ser</h2>
           <p>

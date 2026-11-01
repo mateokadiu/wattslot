@@ -184,9 +184,33 @@ await db.batch(
 );
 await mf.dispose();
 
+// Notifications need the two Workers Secrets; local test values, made fresh on every start.
+const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
+  'deriveBits',
+]);
+const vapidPublic = Buffer.from(await crypto.subtle.exportKey('raw', pair.publicKey)).toString(
+  'base64url',
+);
+const { d: vapidPrivate } = await crypto.subtle.exportKey('jwk', pair.privateKey);
+const kek = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
+
 const dev = spawn(
   'pnpm',
-  ['exec', 'wrangler', 'dev', '--port', PORT, '--ip', '127.0.0.1', '--persist-to', STATE],
+  [
+    'exec',
+    'wrangler',
+    'dev',
+    '--port',
+    PORT,
+    '--ip',
+    '127.0.0.1',
+    '--persist-to',
+    STATE,
+    '--var',
+    `VAPID_PRIVATE_KEY:${vapidPublic}.${vapidPrivate}`,
+    '--var',
+    `PUSH_KEK:${kek}`,
+  ],
   { cwd: API, env, stdio: 'inherit' },
 );
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => dev.kill(signal));
