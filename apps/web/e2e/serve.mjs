@@ -151,6 +151,35 @@ await db
   .prepare("update ingest_state set last_success_at_ms = ? where task like 'outages%'")
   .bind(Date.now())
   .run();
+// The plan form plans from the real clock too, and needs recent history to estimate from: copy
+// the recorded day onto the last four weeks — but only after 29 Oct, which belongs to the tests
+// that fix the clock on 28 Oct and expect tomorrow to be unpublished.
+const DAY = 86_400_000;
+const recorded = Date.UTC(2026, 9, 27, 23); // 28 Oct 2026, 00:00 in Copenhagen
+const firstCopy = Date.UTC(2026, 9, 29, 23);
+const shifts = [];
+for (let n = 1; recorded + n * DAY <= Date.now(); n++) {
+  const day = recorded + n * DAY;
+  if (day >= firstCopy && day > Date.now() - 29 * DAY) shifts.push(n * DAY);
+}
+await db.batch(
+  shifts.flatMap((shift) => [
+    db
+      .prepare(
+        `INSERT INTO spot_prices (zone, slot_start_ms, price_micro, price_eur_micro, source)
+         SELECT zone, slot_start_ms + ?1, price_micro, price_eur_micro, source FROM spot_prices
+         WHERE slot_start_ms >= ?2 AND slot_start_ms < ?3`,
+      )
+      .bind(shift, recorded, recorded + DAY),
+    db
+      .prepare(
+        `INSERT INTO co2_intensity (zone, time_ms, kind, g_per_kwh, issued_at_ms)
+         SELECT zone, time_ms + ?1, kind, g_per_kwh, issued_at_ms FROM co2_intensity
+         WHERE time_ms >= ?2 AND time_ms < ?3`,
+      )
+      .bind(shift, recorded, recorded + DAY),
+  ]),
+);
 await mf.dispose();
 
 const dev = spawn(

@@ -4,6 +4,7 @@ import { cheapestWindow } from '@wattslot/planner';
 import { localTime } from '@wattslot/pricing';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
+import { PLAN_TEXT } from '@/content/plan';
 import { type Co2, type GridCompany, getJson, type Prices, type Zone } from '@/lib/api';
 import type { PriceSlot } from '@/lib/chart';
 import { clock, duration, kwh, perKwh, price } from '@/lib/format';
@@ -31,6 +32,9 @@ const GridCompanyPicker = dynamic(() => import('./Pickers').then((m) => m.GridCo
   ssr: false,
   loading: PickerPlaceholder,
 });
+// The plan form loads when it's first wanted (or hovered), not with the page.
+const loadPlanDialog = () => import('./PlanDialog');
+const PlanDialog = dynamic(loadPlanDialog, { ssr: false });
 
 // The default price area depends on the page's language; see LOCALES.
 const DEFAULTS = {
@@ -115,6 +119,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [day, setDay] = useState<'today' | 'tomorrow'>('today');
   const [nowMs, setNowMs] = useState(0);
+  const [planning, setPlanning] = useState(false);
 
   useEffect(() => {
     setPrefs(initialPrefs(defaultZone));
@@ -401,6 +406,28 @@ export function Dashboard({ locale }: { locale: Locale }) {
             </div>
           ) : (
             <p className="mt-5 text-sm text-[var(--muted)]">{view ? t.taskNoFit : t.loading}</p>
+          )}
+          {zone && (
+            <button
+              type="button"
+              onClick={() => setPlanning(true)}
+              onPointerEnter={loadPlanDialog}
+              onFocus={loadPlanDialog}
+              className="mt-4 h-10 rounded-lg border border-[var(--border)] px-4 text-sm font-medium transition-colors hover:bg-[var(--grid)]"
+            >
+              {PLAN_TEXT[locale].open}
+            </button>
+          )}
+          {planning && zone && (
+            <PlanDialog
+              key={task.id}
+              open={planning}
+              onOpenChange={setPlanning}
+              locale={locale}
+              task={task}
+              zone={zone}
+              gln={zone.fullPrice && prefs?.gln ? prefs.gln : null}
+            />
           )}
         </article>
       </div>
