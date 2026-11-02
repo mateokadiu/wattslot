@@ -13,13 +13,18 @@ import { planTask, SLOT_MS, slotsFor, TASKS, type Task, verdict } from '@/lib/in
 import { useHasOwner } from '@/lib/owner';
 import { readPrefs as readStoredPrefs, writePrefs } from '@/lib/place';
 import { type ChartMode, PriceChart } from './PriceChart';
+import { ChartSkeleton, Skeleton } from './ui/skeleton';
 
 /** Same size as a picker, so the lazily loaded controls replace it without moving the page. */
 function PickerPlaceholder() {
   return (
     <div aria-hidden="true">
-      <div className="mb-1.5 h-[17px]" />
-      <div className="h-11 rounded-lg border border-[var(--border)] bg-[var(--card)]" />
+      <div className="mb-1.5 flex h-[17px] items-center">
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <div className="flex h-11 items-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5">
+        <Skeleton className="h-4 w-40" />
+      </div>
     </div>
   );
 }
@@ -273,10 +278,13 @@ export function Dashboard({ locale }: { locale: Locale }) {
               </span>
               <span className="truncate text-[var(--muted)]">· {headline}</span>
             </>
+          ) : state === 'loading' ? (
+            <>
+              <Skeleton className="h-3.5 w-44" />
+              <span className="sr-only">{t.loading}</span>
+            </>
           ) : (
-            <span className="text-[var(--muted)]">
-              {state === 'loading' ? t.loading : headline}
-            </span>
+            <span className="text-[var(--muted)]">{headline}</span>
           )}
         </p>
       </div>
@@ -349,13 +357,17 @@ export function Dashboard({ locale }: { locale: Locale }) {
                   : t.verdictNowDetail}
               </p>
             </div>
-          ) : (
-            <div className="mt-3 space-y-3">
-              <div className="h-14 w-48 animate-pulse rounded-lg bg-[var(--grid)]" />
-              <p className="text-sm text-[var(--muted)]">
-                {state === 'loading' ? t.loading : headline}
-              </p>
+          ) : state === 'loading' ? (
+            // Shaped like the price, "until", verdict and detail lines above.
+            <div className="mt-3">
+              <span className="sr-only">{t.loading}</span>
+              <Skeleton className="h-12 w-52 sm:h-[60px] sm:w-64" />
+              <Skeleton className="mt-1.5 h-3 w-20" />
+              <Skeleton className="mt-6 h-6 w-64 max-w-full" />
+              <Skeleton className="mt-2 h-4 w-80 max-w-full" />
             </div>
+          ) : (
+            <p className="mt-3 text-sm text-[var(--muted)]">{headline}</p>
           )}
         </article>
 
@@ -408,8 +420,17 @@ export function Dashboard({ locale }: { locale: Locale }) {
                     )}
               </p>
             </div>
+          ) : !view && state === 'loading' ? (
+            // Shaped like the label, time, cost, saving and assumption lines of a plan.
+            <div className="mt-5">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-2 h-8 w-44" />
+              <Skeleton className="mt-4 h-4 w-32" />
+              <Skeleton className="mt-1.5 h-4 w-52 max-w-full" />
+              <Skeleton className="mt-4 h-3 w-60 max-w-full" />
+            </div>
           ) : (
-            <p className="mt-5 text-sm text-[var(--muted)]">{view ? t.taskNoFit : t.loading}</p>
+            <p className="mt-5 text-sm text-[var(--muted)]">{view ? t.taskNoFit : t.error}</p>
           )}
           {zone && (
             <button
@@ -448,7 +469,7 @@ export function Dashboard({ locale }: { locale: Locale }) {
               </StatSub>
             </>
           ) : (
-            <StatValue>–</StatValue>
+            <StatMissing loading={state === 'loading'} />
           )}
         </Stat>
         <Stat label={t.priciest}>
@@ -460,11 +481,15 @@ export function Dashboard({ locale }: { locale: Locale }) {
               </StatSub>
             </>
           ) : (
-            <StatValue>–</StatValue>
+            <StatMissing loading={state === 'loading'} />
           )}
         </Stat>
         <Stat label={t.co2Now} className="col-span-2 sm:col-span-1">
-          <StatValue>{view?.co2Now != null ? Math.round(view.co2Now) : '–'}</StatValue>
+          {view?.co2Now == null && state === 'loading' ? (
+            <Skeleton className="h-8 w-14" />
+          ) : (
+            <StatValue>{view?.co2Now != null ? Math.round(view.co2Now) : '–'}</StatValue>
+          )}
           <StatSub>g/kWh</StatSub>
         </Stat>
       </div>
@@ -519,9 +544,11 @@ export function Dashboard({ locale }: { locale: Locale }) {
               mode={prefs?.mode ?? 'level'}
               t={t}
             />
+          ) : state === 'loading' ? (
+            <ChartSkeleton label={t.loading} />
           ) : (
             <p className="flex h-[300px] items-center justify-center text-sm text-[var(--muted)]">
-              {state === 'error' ? t.error : state === 'loading' ? t.loading : t.noPrices}
+              {state === 'error' ? t.error : t.noPrices}
             </p>
           )}
         </div>
@@ -558,6 +585,16 @@ function Stat({
 const StatValue = ({ children }: { children: React.ReactNode }) => (
   <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight">{children}</p>
 );
+/** A stat with nothing to show: a placeholder while prices load, a dash after. */
+function StatMissing({ loading }: { loading: boolean }) {
+  if (!loading) return <StatValue>–</StatValue>;
+  return (
+    <>
+      <Skeleton className="h-8 w-20" />
+      <Skeleton className="mt-1 h-3 w-16" />
+    </>
+  );
+}
 const StatSub = ({ children }: { children: React.ReactNode }) => (
   <p className="font-mono text-xs text-[var(--muted)]">{children}</p>
 );

@@ -2,7 +2,7 @@
 
 import { OUTAGES_TEXT } from '@/content/outages';
 import { isCurrent, useOutages } from '@/lib/outages';
-import { OutageItem } from './OutageItem';
+import { OutageItem, OutageSkeleton } from './OutageItem';
 
 const tel = (phone: string) => `tel:${phone.replace(/\s/g, '')}`;
 
@@ -48,7 +48,7 @@ export function CompanyOutages({
       ) : loaded?.state === 'ready' && !loaded.data.enabled ? (
         <p>{x.paused}</p>
       ) : loaded?.state !== 'ready' ? (
-        <p className="text-[var(--muted)]">{x.loading}</p>
+        <OutageSkeleton rows={1} label={x.loading} />
       ) : (
         <>
           {current.length === 0 ? (

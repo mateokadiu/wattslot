@@ -48,6 +48,7 @@ export interface PlanText {
   full: string;
   saveError: string;
   myPlans: string;
+  loadingPlans: string;
   noPlans: string;
   plansNote: string;
   statuses: Record<'planned' | 'running' | 'done' | 'cancelled' | 'failed', string>;
@@ -124,6 +125,7 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     full: 'Plans are full right now. Try again later.',
     saveError: 'Couldn’t save the plan. Try again in a moment.',
     myPlans: 'My plans',
+    loadingPlans: 'Fetching your plans…',
     noPlans: 'No plans right now.',
     plansNote:
       'Your plans belong to this browser only: clear its data or use another device, and they’re gone. Ended plans disappear after a week.',
@@ -214,6 +216,7 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     full: 'Der er ikke plads til flere planer lige nu. Prøv igen senere.',
     saveError: 'Kunne ikke gemme planen. Prøv igen om lidt.',
     myPlans: 'Mine planer',
+    loadingPlans: 'Henter dine planer…',
     noPlans: 'Ingen planer lige nu.',
     plansNote:
       'Dine planer hører kun til denne browser: rydder du dens data eller bruger en anden enhed, er de væk. Afsluttede planer forsvinder efter en uge.',
@@ -304,6 +307,7 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     full: 'Gerade ist kein Platz für weitere Pläne. Versuch es später noch einmal.',
     saveError: 'Der Plan konnte nicht gespeichert werden. Versuch es gleich noch einmal.',
     myPlans: 'Meine Pläne',
+    loadingPlans: 'Deine Pläne werden geladen…',
     noPlans: 'Gerade keine Pläne.',
     plansNote:
       'Deine Pläne gehören nur zu diesem Browser: Löschst du seine Daten oder nutzt ein anderes Gerät, sind sie weg. Beendete Pläne verschwinden nach einer Woche.',
@@ -396,6 +400,7 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     full: 'Det er ikke plass til flere planer akkurat nå. Prøv igjen senere.',
     saveError: 'Klarte ikke å lagre planen. Prøv igjen om litt.',
     myPlans: 'Mine planer',
+    loadingPlans: 'Henter planene dine…',
     noPlans: 'Ingen planer akkurat nå.',
     plansNote:
       'Planene dine hører bare til denne nettleseren: tømmer du dataene eller bruker en annen enhet, er de borte. Avsluttede planer forsvinner etter en uke.',
@@ -485,6 +490,7 @@ export const PLAN_TEXT: Record<Locale, PlanText> = {
     full: 'Det finns inte plats för fler planer just nu. Försök igen senare.',
     saveError: 'Det gick inte att spara planen. Försök igen om en stund.',
     myPlans: 'Mina planer',
+    loadingPlans: 'Hämtar dina planer…',
     noPlans: 'Inga planer just nu.',
     plansNote:
       'Dina planer hör bara till den här webbläsaren: rensar du dess data eller använder en annan enhet är de borta. Avslutade planer försvinner efter en vecka.',

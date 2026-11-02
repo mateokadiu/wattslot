@@ -9,6 +9,7 @@ import { downloadIcs, toIcs } from '@/lib/ics';
 import { cancelJob, deleteEverything, type Job, listJobs, onPlansChanged } from '@/lib/owner';
 import { NotifyControl } from './NotifyControl';
 import { describeRuns, moneyFormat, planEvents, useWhen } from './plan-format';
+import { Skeleton } from './ui/skeleton';
 
 // "My plans" on the live view (PLAN.md §17.7): this browser's saved plans, what happens next,
 // cancel, add to calendar, and delete everything. Loaded only in a browser that has saved plans.
@@ -43,7 +44,34 @@ export default function MyPlans({ locale, zones }: { locale: Locale; zones: Zone
     };
   }, [load]);
 
-  if (jobs === null && !error) return null;
+  if (jobs === null && !error) {
+    // This browser has saved plans: keep their place while they load.
+    return (
+      <section
+        aria-labelledby="my-plans"
+        className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6"
+      >
+        <h2 id="my-plans" className="label">
+          {p.myPlans}
+        </h2>
+        <div role="status" className="mt-3">
+          <span className="sr-only">{p.loadingPlans}</span>
+          <div aria-hidden="true">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-5 w-16" />
+            </div>
+            <Skeleton className="mt-2 h-4 w-72 max-w-full" />
+            <Skeleton className="mt-2 h-3 w-48" />
+            <div className="mt-3 flex gap-2">
+              <Skeleton className="h-9 w-32 rounded-lg" />
+              <Skeleton className="h-9 w-28 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

@@ -3,6 +3,7 @@ import type { Outage } from '@/lib/api';
 import { displayName } from '@/lib/companies';
 import type { Locale } from '@/lib/i18n';
 import { when } from '@/lib/outages';
+import { Skeleton } from './ui/skeleton';
 
 const BADGE: Record<Outage['kind'] | 'restored', string> = {
   unplanned: 'bg-[var(--expensive)]/20 text-[var(--foreground)]',
@@ -58,5 +59,27 @@ export function OutageItem({
           .join(' · ')}
       </p>
     </li>
+  );
+}
+
+/** Outages still loading: rows shaped like OutageItem, and "loading" for screen readers. */
+export function OutageSkeleton({ rows = 3, label }: { rows?: number; label: string }) {
+  return (
+    <div role="status">
+      <span className="sr-only">{label}</span>
+      <ul aria-hidden="true" className="mt-2 divide-y divide-[var(--border)]">
+        {Array.from({ length: rows }, (_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: a fixed placeholder list
+          <li key={i} className="py-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-48 max-w-[60%]" />
+            </div>
+            <Skeleton className="mt-2 h-4 w-72 max-w-full" />
+            <Skeleton className="mt-2 h-3 w-56 max-w-[80%]" />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

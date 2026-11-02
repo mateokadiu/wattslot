@@ -5,7 +5,7 @@ import { OUTAGES_TEXT } from '@/content/outages';
 import type { Outage } from '@/lib/api';
 import { type Loaded, useOutages, when } from '@/lib/outages';
 import { setPostcode, usePlace, usePostcode } from '@/lib/place';
-import { OutageItem } from './OutageItem';
+import { OutageItem, OutageSkeleton } from './OutageItem';
 
 /** A grid company as the board needs it: name, page and every grid area's GLN. */
 export interface BoardCompany {
@@ -49,9 +49,7 @@ export function OutageBoard({
   );
 
   const list = (loaded: Loaded | null, filter: (o: Outage) => boolean, empty: string) => {
-    if (!loaded || loaded.state === 'loading') {
-      return <p className="mt-3 text-sm text-[var(--muted)]">{x.loading}</p>;
-    }
+    if (!loaded || loaded.state === 'loading') return <OutageSkeleton label={x.loading} />;
     if (loaded.state === 'error') return <p className="mt-3 text-sm">{x.error}</p>;
     if (!loaded.data.enabled) return <p className="mt-3 text-sm">{x.paused}</p>;
     const items = loaded.data.outages.filter(filter);
