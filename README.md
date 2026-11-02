@@ -1,23 +1,24 @@
 # wattslot
 
-Plans when to use electricity — EV charging, heat pumps, dishwashers — using the price you actually pay and the grid's CO₂ forecast, at 15-minute resolution. Runs on Cloudflare's free plan.
+Plans when to use electricity — EV charging, dishwashers, washing machines — using the price you actually pay and the grid's CO₂ forecast, at 15-minute resolution, and tells you when to start. Runs on Cloudflare's free plan.
 
 The price you pay isn't the spot price. In Denmark it's spot + your grid company's time-of-use tariff + Energinet's tariffs + electricity tax + VAT, and the grid tariff alone can be 9× higher at 17–21 than at night. wattslot computes the full price per 15-minute slot and plans around it.
 
 **Live:** [wattslot.mateokadiu.com](https://wattslot.mateokadiu.com) · API: [`/v1/prices`](https://wattslot.mateokadiu.com/v1/prices?zone=DK2&gln=5790000705689) · [OpenAPI](https://wattslot.mateokadiu.com/openapi.json)
 
-> **Status:** Phase 1 (live prices) is deployed. See [PLAN.md](./PLAN.md) for the full design and roadmap.
+> **Status:** live — prices, power outages, and saved plans with Web Push notifications. Next: re-planning when tomorrow's prices land, and a calendar feed. See [PLAN.md](./PLAN.md) for the full design and roadmap.
 
 ## Workspace
 
-| Package                                         | What it does                                                                                                                                                               |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@wattslot/eds-client`](./packages/eds-client) | Typed client for [Energi Data Service](https://www.energidataservice.dk): day-ahead prices, CO₂ emissions and forecasts, DataHub tariffs. Zod-validated, rate-limit aware. |
-| [`@wattslot/pricing`](./packages/pricing)       | Pure functions: all-in price per 15-minute slot with a per-component breakdown, integer money maths, DST-correct local time. Tested in Node and inside `workerd`.          |
-| [`@wattslot/planner`](./packages/planner)       | Pure functions: cheapest contiguous window and cheapest individual slots, property-tested against brute force.                                                             |
-| [`@wattslot/db`](./packages/db)                 | D1 (SQLite) schema with Drizzle, migrations, and household tariffs for 35 Danish grid companies (31 supported, 99.7% of metering points).                                  |
-| [`@wattslot/api`](./apps/api)                   | Cloudflare Worker: Hono REST API with OpenAPI at `/openapi.json`. AGPL-3.0.                                                                                                |
-| [`@wattslot/web`](./apps/web)                   | The website: a Next.js static export served by the same Worker — price chart, cheapest window, in English, Danish, German, Norwegian and Swedish. AGPL-3.0.                |
+| Package                                         | What it does                                                                                                                                                                                  |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@wattslot/eds-client`](./packages/eds-client) | Typed client for [Energi Data Service](https://www.energidataservice.dk): day-ahead prices, CO₂ emissions and forecasts, DataHub tariffs. Zod-validated, rate-limit aware.                    |
+| [`@wattslot/pricing`](./packages/pricing)       | Pure functions: all-in price per 15-minute slot with a per-component breakdown, integer money maths, DST-correct local time. Tested in Node and inside `workerd`.                             |
+| [`@wattslot/planner`](./packages/planner)       | Pure functions: plans that deliver exactly the energy needed (contiguous or with pauses), grouped into runs, plus start-now and midnight baselines — property-tested against brute force.     |
+| [`@wattslot/webpush`](./packages/webpush)       | Web Push on Web Crypto alone: message encryption (RFC 8291) and VAPID (RFC 8292), checked against the RFC test vector in Node and in `workerd`.                                               |
+| [`@wattslot/db`](./packages/db)                 | D1 (SQLite) schema with Drizzle, migrations, and household tariffs for 35 Danish grid companies (31 supported, 99.7% of metering points).                                                     |
+| [`@wattslot/api`](./apps/api)                   | Cloudflare Worker: Hono REST API with OpenAPI at `/openapi.json`, the ingestion cron, and one Workflow per saved plan that sends its notifications. AGPL-3.0.                                 |
+| [`@wattslot/web`](./apps/web)                   | The website: a Next.js static export served by the same Worker — price chart, plan form, My plans, notifications, power outages, in English, Danish, German, Norwegian and Swedish. AGPL-3.0. |
 
 ## Example
 
@@ -59,6 +60,9 @@ curl 'http://localhost:8787/__scheduled?cron=*/5+*+*+*+*'   # run the ingestion 
 | `GET /v1/co2?zone=DK2`                                      | Forecast and measured grid CO₂ intensity per 15 minutes.                                                                                                                             |
 | `GET /v1/zones`, `/v1/grid-companies?zone=DK2`              | Reference data: 6 zones, 35 Danish grid companies (31 supported).                                                                                                                    |
 | `GET /v1/status`                                            | When each dataset was last ingested.                                                                                                                                                 |
+| `GET /v1/outages?list=active`                               | Current power outages and planned work from the Danish grid companies (source: Green Power Denmark).                                                                                 |
+| `POST /v1/plan-preview`                                     | Cheapest, balanced and greenest plans for a load in a window, with cost, CO₂ and two baselines. Nothing is stored.                                                                   |
+| `POST /v1/owners`, `/v1/jobs`, `/v1/push/…`                 | Saved plans without an account (a bearer token kept in the browser), cancel, and Web Push subscriptions.                                                                             |
 
 Full schema: `/openapi.json`. Every `/v1` response carries `X-Data-Source: Energinet (www.energidataservice.dk), CC BY 4.0`, is readable from any website (CORS), and is cached at Cloudflare's edge.
 
@@ -66,7 +70,7 @@ Tests run against recorded API responses in [`fixtures/eds`](./fixtures/eds), in
 
 ## Architecture
 
-One Cloudflare Worker ingests prices on a 5-minute cron, stores them in D1, serves the API, and serves the website — a Next.js static export — as static assets from the edge. Cloudflare Workflows will run the per-job schedules. See [PLAN.md §4](./PLAN.md#4-architecture).
+One Cloudflare Worker ingests prices on a 5-minute cron, stores them in D1, serves the API, and serves the website — a Next.js static export — as static assets from the edge. Each saved plan runs as its own Cloudflare Workflow, which sleeps until every start and stop and sends a Web Push notification. See [PLAN.md §4](./PLAN.md#4-architecture) and [§17.7](./PLAN.md#177-phase-2--plans-notifications-and-calendar-spec-2026-10-31).
 
 ## Data
 
@@ -76,10 +80,10 @@ wattslot is not affiliated with Energinet, any grid company, evcc, Home Assistan
 
 ## License
 
-| Part                                                                          | License                                                                                                                                                 |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Libraries in `packages/` (`eds-client`, `pricing`, `db`, and later `planner`) | [Apache-2.0](./LICENSE) — use them anywhere, including commercially; includes a patent grant                                                            |
-| Applications in `apps/` (API, worker, web — from Phase 1)                     | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) — free to self-host and modify; if you run a modified version as a service, publish your changes |
-| Recorded data in `fixtures/eds`                                               | CC BY 4.0, Source: Energinet — see [fixtures/eds/README.md](./fixtures/eds/README.md)                                                                   |
+| Part                                                                           | License                                                                                                                                                 |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Libraries in `packages/` (`eds-client`, `pricing`, `db`, `planner`, `webpush`) | [Apache-2.0](./LICENSE) — use them anywhere, including commercially; includes a patent grant                                                            |
+| Applications in `apps/` (API, worker, web — from Phase 1)                      | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) — free to self-host and modify; if you run a modified version as a service, publish your changes |
+| Recorded data in `fixtures/eds`                                                | CC BY 4.0, Source: Energinet — see [fixtures/eds/README.md](./fixtures/eds/README.md)                                                                   |
 
 See [NOTICE](./NOTICE). The first published commits (up to `38549a8`) were released under MIT.
