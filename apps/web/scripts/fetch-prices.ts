@@ -62,9 +62,13 @@ async function prices(zone: string, gln?: string) {
   );
   const valid =
     Array.isArray(body.slots) &&
-    body.slots.length > 0 &&
     body.slots.every((s) => typeof s.start === 'string' && typeof s.total === 'number');
   if (!valid) throw new Error(`prices: unexpected response for ${zone} ${gln ?? ''}`);
+  // No prices yet (an ingest outage) still builds: the pages leave out days they don't have, and
+  // the build must not stand in the way of deploying the fix.
+  if (body.slots.length === 0) {
+    console.log(`::warning::prices: none stored for ${zone} ${gln ?? ''} on ${today}`);
+  }
   return {
     zone: body.zone,
     currency: body.currency,
