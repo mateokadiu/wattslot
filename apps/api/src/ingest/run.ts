@@ -261,7 +261,9 @@ export async function runScheduled(
   const eds = createEdsClient({
     fetch: fetchImpl,
     userAgent: USER_AGENT,
+    // One client per tick: at most two minutes of waiting, well inside the five between ticks.
     rateLimitRetries: 3,
+    retryWaitBudgetSeconds: 120,
   });
   const due = dueTasks(clock, await loadTaskStates(db)).filter(
     (task) => env.OUTAGES !== 'off' || !OUTAGE_TASKS.includes(task),

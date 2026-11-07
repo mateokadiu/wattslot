@@ -10,11 +10,14 @@ export interface EdsClientOptions {
   /**
    * How many times to wait out a short HTTP 429 and ask again. EDS limits each dataset per IP
    * address, and a Worker shares its outgoing addresses with other Workers, so the limit is often
-   * spent by someone else; the wait it asks for is usually a few seconds. Default 0.
+   * spent by someone else; the wait it asks for is a few seconds to about a minute. Default 0.
    */
   rateLimitRetries?: number;
-  /** Waits longer than this are not sat out: the rate-limit error is thrown instead. */
-  maxRetryWaitSeconds?: number;
+  /**
+   * Seconds this client will spend waiting out rate limits in all, across every request; a wait
+   * that doesn't fit is not sat out and the rate-limit error is thrown instead. Default 30.
+   */
+  retryWaitBudgetSeconds?: number;
   sleep?: (ms: number) => Promise<void>;
 }
 
@@ -72,7 +75,7 @@ export function createEdsClient(options: EdsClientOptions = {}): EdsClient {
   const timeoutMs = options.timeoutMs ?? 30_000;
   const userAgent = options.userAgent ?? 'wattslot-eds-client';
   const rateLimitRetries = options.rateLimitRetries ?? 0;
-  const maxRetryWaitSeconds = options.maxRetryWaitSeconds ?? 30;
+  let waitBudgetSeconds = options.retryWaitBudgetSeconds ?? 30;
   const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
 
   async function get(
@@ -93,9 +96,10 @@ export function createEdsClient(options: EdsClientOptions = {}): EdsClient {
       body = await response.text();
       if (response.status !== 429) break;
       const wait = retryAfterSeconds(response.headers.get('retry-after'), body);
-      if (attempt >= rateLimitRetries || wait > maxRetryWaitSeconds) {
+      if (attempt >= rateLimitRetries || wait > waitBudgetSeconds) {
         throw new EdsRateLimitError(dataset, wait);
       }
+      waitBudgetSeconds -= wait;
       await sleep(wait * 1000 + 500);
     }
     if (!response.ok) throw new EdsHttpError(dataset, response.status, body.slice(0, 500));

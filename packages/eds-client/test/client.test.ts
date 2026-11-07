@@ -111,6 +111,25 @@ describe('createEdsClient', () => {
     expect(long.calls).toHaveLength(1);
   });
 
+  it('shares one waiting budget between requests', async () => {
+    const limited = fakeFetch(429, '{}', { 'retry-after': '40' });
+    const waits: number[] = [];
+    const client = createEdsClient({
+      fetch: limited.fetch,
+      rateLimitRetries: 3,
+      retryWaitBudgetSeconds: 100,
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+    const query = { start: '2026-10-28', end: '2026-10-29' };
+    await client.dayAheadPrices(query).catch(() => {});
+    await client.co2Emission(query).catch(() => {});
+    // 40 + 40 fit in 100; the third wait doesn't, and the second request gets none at all.
+    expect(waits).toEqual([40_500, 40_500]);
+    expect(limited.calls).toHaveLength(4);
+  });
+
   it('reports other HTTP failures with status and body', async () => {
     const { fetch } = fakeFetch(503, 'maintenance');
     const error = await createEdsClient({ fetch })
