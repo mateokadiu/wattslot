@@ -7,6 +7,15 @@ export interface EdsClientOptions {
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
   userAgent?: string;
+  /**
+   * How many times to wait out a short HTTP 429 and ask again. EDS limits each dataset per IP
+   * address, and a Worker shares its outgoing addresses with other Workers, so the limit is often
+   * spent by someone else; the wait it asks for is usually a few seconds. Default 0.
+   */
+  rateLimitRetries?: number;
+  /** Waits longer than this are not sat out: the rate-limit error is thrown instead. */
+  maxRetryWaitSeconds?: number;
+  sleep?: (ms: number) => Promise<void>;
 }
 
 /**
@@ -62,6 +71,9 @@ export function createEdsClient(options: EdsClientOptions = {}): EdsClient {
   const doFetch = options.fetch ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? 30_000;
   const userAgent = options.userAgent ?? 'wattslot-eds-client';
+  const rateLimitRetries = options.rateLimitRetries ?? 0;
+  const maxRetryWaitSeconds = options.maxRetryWaitSeconds ?? 30;
+  const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
 
   async function get(
     dataset: string,
@@ -71,16 +83,20 @@ export function createEdsClient(options: EdsClientOptions = {}): EdsClient {
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined) url.searchParams.set(key, value);
     }
-    const response = await doFetch(url, {
-      headers: { accept: 'application/json', 'user-agent': userAgent },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    const body = await response.text();
-    if (response.status === 429) {
-      throw new EdsRateLimitError(
-        dataset,
-        retryAfterSeconds(response.headers.get('retry-after'), body),
-      );
+    let response: Response;
+    let body: string;
+    for (let attempt = 0; ; attempt++) {
+      response = await doFetch(url, {
+        headers: { accept: 'application/json', 'user-agent': userAgent },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      body = await response.text();
+      if (response.status !== 429) break;
+      const wait = retryAfterSeconds(response.headers.get('retry-after'), body);
+      if (attempt >= rateLimitRetries || wait > maxRetryWaitSeconds) {
+        throw new EdsRateLimitError(dataset, wait);
+      }
+      await sleep(wait * 1000 + 500);
     }
     if (!response.ok) throw new EdsHttpError(dataset, response.status, body.slice(0, 500));
     try {

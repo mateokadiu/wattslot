@@ -71,6 +71,46 @@ describe('createEdsClient', () => {
     expect((error as EdsRateLimitError).dataset).toBe('DayAheadPrices');
   });
 
+  it('waits out short rate limits when asked to retry', async () => {
+    const statuses = [429, 429, 200];
+    const calls: string[] = [];
+    const fetch: typeof globalThis.fetch = async () => {
+      const status = statuses[calls.length] ?? 200;
+      calls.push(String(status));
+      return status === 429
+        ? new Response('{}', { status, headers: { 'retry-after': '5' } })
+        : new Response(fixtureText('dayahead-2026-10-28.json'));
+    };
+    const waits: number[] = [];
+    const client = createEdsClient({
+      fetch,
+      rateLimitRetries: 3,
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+    const prices = await client.dayAheadPrices({ start: '2026-10-28', end: '2026-10-29' });
+    expect(prices).toHaveLength(192);
+    expect(calls).toEqual(['429', '429', '200']);
+    expect(waits).toEqual([5500, 5500]);
+  });
+
+  it('gives up after the retries, or at once when the wait is long', async () => {
+    const short = fakeFetch(429, '{}', { 'retry-after': '5' });
+    const sleep = async () => {};
+    const error = await createEdsClient({ fetch: short.fetch, rateLimitRetries: 2, sleep })
+      .dayAheadPrices({ start: '2026-10-28', end: '2026-10-29' })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(EdsRateLimitError);
+    expect(short.calls).toHaveLength(3);
+
+    const long = fakeFetch(429, fixtureText('error-429.json'));
+    await createEdsClient({ fetch: long.fetch, rateLimitRetries: 2, sleep })
+      .dayAheadPrices({ start: '2026-10-28', end: '2026-10-29' })
+      .catch(() => {});
+    expect(long.calls).toHaveLength(1);
+  });
+
   it('reports other HTTP failures with status and body', async () => {
     const { fetch } = fakeFetch(503, 'maintenance');
     const error = await createEdsClient({ fetch })

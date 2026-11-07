@@ -261,6 +261,7 @@ export async function runScheduled(
   const eds = createEdsClient({
     fetch: fetchImpl,
     userAgent: USER_AGENT,
+    rateLimitRetries: 3,
   });
   const due = dueTasks(clock, await loadTaskStates(db)).filter(
     (task) => env.OUTAGES !== 'off' || !OUTAGE_TASKS.includes(task),
