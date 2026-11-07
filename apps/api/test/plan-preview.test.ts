@@ -26,12 +26,30 @@ beforeAll(async () => {
   for (let t = MIDNIGHT - 29 * DAY; t < MIDNIGHT - DAY; t += 900_000) {
     rows.push([t, historyPrice(t)]);
   }
+  // The route runs on the real clock: four weeks up to now as well, none of it ahead, and none of
+  // it on the recorded days.
+  const realNow = Date.now() - (Date.now() % 900_000);
+  for (let t = Math.max(MIDNIGHT + DAY, realNow - 29 * DAY); t < realNow; t += 900_000) {
+    rows.push([t, historyPrice(t)]);
+  }
   await h.db
     .prepare(
-      `INSERT INTO spot_prices (zone, slot_start_ms, price_micro, price_eur_micro, source)
+      `INSERT OR IGNORE INTO spot_prices (zone, slot_start_ms, price_micro, price_eur_micro, source)
        SELECT 'DK2', value ->> '$[0]', value ->> '$[1]', 0, 'test' FROM json_each(?)`,
     )
     .bind(JSON.stringify(rows))
+    .run();
+  // And a week of CO₂ up to now, so the route can offer all three options.
+  const co2: [number, number][] = [];
+  for (let t = Math.max(MIDNIGHT + DAY, realNow - 7 * DAY); t < realNow; t += 900_000) {
+    co2.push([t, (t / 900_000) % 7 === 0 ? 300 : 100]);
+  }
+  await h.db
+    .prepare(
+      `INSERT OR IGNORE INTO co2_intensity (zone, time_ms, kind, g_per_kwh, issued_at_ms)
+       SELECT 'DK2', value ->> '$[0]', 'actual', value ->> '$[1]', 0 FROM json_each(?)`,
+    )
+    .bind(JSON.stringify(co2))
     .run();
 }, 60_000);
 
@@ -160,7 +178,7 @@ describe('POST /v1/plan-preview', () => {
   });
 
   it('plans from estimates when nothing ahead is published', async () => {
-    // The made-up history ends weeks before the real clock's today, so every slot is estimated.
+    // The made-up history stops at the real clock's now, so every slot is estimated.
     const response = await post({ ...body, deadline: inHours(24) });
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
